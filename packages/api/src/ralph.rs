@@ -289,5 +289,114 @@ pub async fn add_guardrail(
         })
 }
 
+// File System Browsing
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub path: String,
+    pub is_directory: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct DirectoryListing {
+    pub current_path: String,
+    pub entries: Vec<DirectoryEntry>,
+}
+
+#[server]
+pub async fn list_directory(path: Option<String>) -> Result<DirectoryListing, ServerFnError> {
+    use std::path::Path;
+    
+    let target_path = if let Some(p) = path {
+        Path::new(&p).to_path_buf()
+    } else {
+        // Default to home directory
+        dirs::home_dir().ok_or_else(|| {
+            ServerFnError::new("Could not determine home directory".to_string())
+        })?
+    };
+
+    // Validate that the path exists and is a directory
+    if !target_path.exists() {
+        return Err(ServerFnError::new(format!("Path does not exist: {}", target_path.display())));
+    }
+
+    if !target_path.is_dir() {
+        return Err(ServerFnError::new(format!("Path is not a directory: {}", target_path.display())));
+    }
+
+    // Read directory entries
+    let mut entries = Vec::new();
+    
+    match std::fs::read_dir(&target_path) {
+        Ok(dir_entries) => {
+            for entry_result in dir_entries {
+                match entry_result {
+                    Ok(entry) => {
+                        let entry_path = entry.path();
+                        let name = entry_path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("")
+                            .to_string();
+                        
+                        // Skip hidden files/directories (starting with .)
+                        if name.starts_with('.') {
+                            continue;
+                        }
+
+                        let is_directory = entry_path.is_dir();
+                        let full_path = entry_path.to_string_lossy().to_string();
+
+                        entries.push(DirectoryEntry {
+                            name,
+                            path: full_path,
+                            is_directory,
+                        });
+                    }
+                    Err(e) => {
+                        tracing::warn!("Error reading directory entry: {}", e);
+                        // Continue with other entries
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            return Err(ServerFnError::new(format!(
+                "Permission denied or error reading directory: {}",
+                e
+            )));
+        }
+    }
+
+    // Sort entries: directories first, then files, both alphabetically
+    entries.sort_by(|a, b| {
+        match (a.is_directory, b.is_directory) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        }
+    });
+
+    Ok(DirectoryListing {
+        current_path: target_path.to_string_lossy().to_string(),
+        entries,
+    })
+}
+
+#[server]
+pub async fn get_parent_directory(path: String) -> Result<Option<String>, ServerFnError> {
+    use std::path::Path;
+    
+    let path_buf = Path::new(&path);
+    
+    if let Some(parent) = path_buf.parent() {
+        Ok(Some(parent.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
 // Activity Streaming
 // Note: SSE streaming will be implemented in the web package using use_resource

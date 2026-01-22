@@ -397,3 +397,143 @@
     color: #78350f;
     font-size: 0.8125rem;
 }
+
+/* File Picker */
+.file-picker {
+    background: #fff;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+}
+
+.file-picker-header {
+    margin-bottom: 1rem;
+}
+
+.file-picker-path {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #f9fafb;
+    border-radius: 6px;
+}
+
+.btn-icon {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #e1e8ed;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.btn-icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.current-path {
+    flex: 1;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.875rem;
+    color: #374151;
+    word-break: break-all;
+}
+
+.file-picker-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e1e8ed;
+    border-radius: 6px;
+    background: white;
+    margin-bottom: 1rem;
+}
+
+.file-picker-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.2s;
+}
+
+.file-picker-entry:last-child {
+    border-bottom: none;
+}
+
+.file-picker-entry.directory:hover {
+    background: #f9fafb;
+}
+
+.file-picker-entry.file {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.entry-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.entry-name {
+    flex: 1;
+    font-size: 0.875rem;
+    color: #374151;
+}
+
+.empty-directory {
+    padding: 2rem;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.loading {
+    padding: 2rem;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.file-picker-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.file-picker-selection label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.file-picker-selection input {
+    padding: 0.5rem;
+    border: 1px solid #e1e8ed;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.875rem;
+}
+
+.file-picker-selection .btn {
+    align-self: flex-start;
+}
+
+.error-message {
+    padding: 0.75rem;
+    background: #fee2e2;
+    color: #991b1b;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}

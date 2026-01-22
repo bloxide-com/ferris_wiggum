@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 use ralph::{SessionConfig, Prd};
-use ui::ralph::PrdEditor;
+use ui::ralph::{PrdEditor, FilePicker};
 
 #[component]
 pub fn RalphNewSession() -> Element {
-    let mut project_path = use_signal(|| String::new());
+    let project_path = use_signal(|| String::new());
     let mut model = use_signal(|| "opus-4.5-thinking".to_string());
     let mut max_iterations = use_signal(|| 20);
     let mut warn_threshold = use_signal(|| 70_000);
@@ -78,15 +78,11 @@ pub fn RalphNewSession() -> Element {
 
                     div { class: "form-group",
                     label { "for": "project-path", "Project Path" }
-                    input {
-                        id: "project-path",
-                        r#type: "text",
-                        value: "{project_path}",
-                        oninput: move |e| project_path.set(e.value()),
-                        placeholder: "/path/to/your/project",
-                        required: true,
+                    FilePicker {
+                        value: project_path,
+                        on_select: None,
                     }
-                    p { class: "form-help", "Absolute path to your project's git repository" }
+                    p { class: "form-help", "Browse and select your project's git repository directory" }
                 }
 
                 div { class: "form-group",
