@@ -22,9 +22,9 @@ Autonomous story execution for Ralph iterations.
    - Follow guardrails
 
 4. **Quality Checks**
-   - Run typecheck (always)
-   - Run linter (if configured)
-   - Run tests (if applicable)
+   - Run dx build (always)
+   - Run cargo clippy (if configured)
+   - Run cargo test (if applicable)
    - Verify in browser (if UI change)
 
 5. **Commit**
