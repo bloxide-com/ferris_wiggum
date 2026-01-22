@@ -107,3 +107,27 @@
 - Always ensure the file picker remains functional after errors - show error message but keep navigation controls (sidebar, up button) working
 - Use visual indicators (lock icons, reduced opacity, different colors) to clearly distinguish protected directories from accessible ones
 ---
+
+## 2026-01-22 - US-006
+- Implemented localStorage persistence for last selected/browsed directory path in FilePicker component
+- Added `web-sys` dependency to web package and created "web" feature flag in ui package for conditional compilation
+- Created `load_last_path()` and `save_last_path()` helper functions that use browser localStorage (web) or no-op (other platforms)
+- File picker now loads last used directory from localStorage on component mount (after hydration)
+- Path is automatically saved to localStorage whenever user navigates (up, into directory, via shortcuts) or confirms a selection
+- Added "Home" button (🏠) in header to allow users to override and navigate to home directory
+- Falls back gracefully to home directory if last path doesn't exist or is invalid
+- Files changed:
+  - `packages/ui/Cargo.toml` - Added web-sys as optional dependency and "web" feature flag
+  - `packages/web/Cargo.toml` - Added web-sys dependency and enabled "web" feature on ui dependency
+  - `packages/ui/src/ralph/file_picker.rs` - Added localStorage save/load functions, updated initialization and navigation handlers to persist path, added Home button
+  - `prd.json` - Updated US-006 to passes: true
+
+**Learnings for future iterations:**
+- Browser-specific APIs (like localStorage) must be accessed after hydration - use `use_effect` hook which runs after hydration
+- Use conditional compilation (`#[cfg(feature = "web")]`) to make platform-specific code only compile for the appropriate platform
+- When sharing code between platforms (like ui crate), add platform-specific dependencies as optional and create feature flags
+- localStorage access should be wrapped in error handling since it may not be available (private browsing mode, etc.)
+- Save path to localStorage on all navigation actions (up, into directory, shortcuts, selection) to ensure it's always up-to-date
+- Provide a way for users to override persisted state (like Home button) for better UX
+- The `use_effect` hook runs after hydration, so browser APIs are safe to access inside it
+---
