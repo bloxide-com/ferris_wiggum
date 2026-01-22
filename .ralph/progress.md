@@ -82,3 +82,28 @@
 - Create wrapper components (like `ShortcutItem`) when you need to use `let` statements or complex logic within `for` loops in `rsx!`
 - The `use_resource` hook automatically handles loading states - use `None` for loading, `Some(Ok(...))` for success, and `Some(Err(...))` for errors
 ---
+
+## 2026-01-22 - US-005
+- Implemented permission error handling in FilePicker component
+- Enhanced `list_directory` server function to detect permission errors specifically and mark protected directories
+- Added `is_protected` field to `DirectoryEntry` struct to track directories with permission restrictions
+- Updated DirectoryEntry component to show lock icon (🔒) for protected directories and prevent selection/navigation
+- Improved error messages with clear titles, details, and helpful guidance for permission errors
+- File picker remains fully functional after errors - users can navigate to alternate directories using sidebar or path navigation
+- Added CSS styles for protected directories (reduced opacity, red hover state, lock indicator)
+- Enhanced error message display with icon, structured layout, and contextual help text
+- Files changed:
+  - `packages/api/src/ralph.rs` - Added `is_protected` field to DirectoryEntry, enhanced permission detection in `list_directory`
+  - `packages/ui/src/ralph/file_picker.rs` - Updated DirectoryEntry to show lock icons, prevent interaction with protected dirs, improved error rendering
+  - `packages/web/assets/styling/ralph.css` - Added styles for protected directories and enhanced error messages
+  - `prd.json` - Updated US-005 to passes: true
+
+**Learnings for future iterations:**
+- Use `std::fs::read_dir()` on directories to check permissions before marking them as protected - this allows showing lock icons proactively
+- Check `std::io::ErrorKind::PermissionDenied` to specifically identify permission errors vs other I/O errors for better error messages
+- When rendering conditional content inside `rsx!` blocks (especially in match arms), compute values outside the rsx! block first, then use simple conditionals inside
+- Protected directories should have `cursor: not-allowed` and prevent onclick/ondoubleclick handlers from executing
+- Error messages should be structured with icon, title, detail, and optional help text for better UX
+- Always ensure the file picker remains functional after errors - show error message but keep navigation controls (sidebar, up button) working
+- Use visual indicators (lock icons, reduced opacity, different colors) to clearly distinguish protected directories from accessible ones
+---
