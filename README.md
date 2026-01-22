@@ -2,9 +2,9 @@
 
 
 
-# Ferris Wiggums
+# Ferris Wiggum
 
-![Ferris Wiggums](ferris_wiggums.png)
+![Ferris Wiggum](ferris_wiggum.png)
 
 A minimal effort Dioxus fullstack implementation of Geoffrey Huntley's Ralph autonomous AI agent technique. The server manages persistent Ralph sessions (git, cursor-agent CLI), while the UI provides real-time monitoring that can connect/disconnect without affecting running sessions.
 
@@ -60,7 +60,7 @@ https://github.com/flourishprosper/ralph-main
 ## Project Structure
 
 ```
-ferris-wiggums/
+ferris_wiggum/
 ├── packages/
 │   ├── ralph/              # Core Ralph engine (server-only)
 │   │   ├── src/
