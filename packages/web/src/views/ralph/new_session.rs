@@ -54,7 +54,7 @@ pub fn RalphNewSession() -> Element {
         // Navigate to session page
         if let Some(id) = session_id() {
             let nav = navigator();
-            nav.push(format!("/ralph/{}", id).as_str());
+            nav.push(format!("/{}", id).as_str());
         }
     };
 
@@ -167,7 +167,7 @@ pub fn RalphNewSession() -> Element {
                         input {
                             r#type: "checkbox",
                             checked: open_pr(),
-                            onchange: move |e| open_pr.set(e.value() == "true"),
+                            onchange: move |e| open_pr.set(e.checked()),
                         }
                         " Open PR when complete"
                     }
@@ -188,7 +188,7 @@ pub fn RalphNewSession() -> Element {
                         }
 
                         Link {
-                            to: "/ralph",
+                            to: "/",
                             class: "btn btn-secondary",
                             "Cancel"
                         }
