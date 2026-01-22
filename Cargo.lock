@@ -5192,6 +5192,7 @@ dependencies = [
  "api",
  "dioxus",
  "ralph",
+ "web-sys",
 ]
 
 [[package]]
@@ -5420,6 +5421,7 @@ dependencies = [
  "dioxus",
  "ralph",
  "ui",
+ "web-sys",
 ]
 
 [[package]]

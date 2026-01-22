@@ -1,5 +1,36 @@
 use dioxus::prelude::*;
 
+#[cfg(feature = "web")]
+use web_sys::window;
+
+const LAST_PATH_KEY: &str = "ralph_file_picker_last_path";
+
+#[cfg(feature = "web")]
+fn load_last_path() -> Option<String> {
+    let window = window()?;
+    let storage = window.local_storage().ok()??;
+    storage.get_item(LAST_PATH_KEY).ok()?
+}
+
+#[cfg(feature = "web")]
+fn save_last_path(path: &str) {
+    if let Some(window) = window() {
+        if let Ok(Some(storage)) = window.local_storage() {
+            let _ = storage.set_item(LAST_PATH_KEY, path);
+        }
+    }
+}
+
+#[cfg(not(feature = "web"))]
+fn load_last_path() -> Option<String> {
+    None
+}
+
+#[cfg(not(feature = "web"))]
+fn save_last_path(_path: &str) {
+    // No-op for non-web platforms
+}
+
 #[component]
 fn DirectoryEntry(
     name: String,
@@ -139,17 +170,33 @@ pub fn FilePicker(
         }
     });
 
-    // Initialize with home directory if not set
+    // Initialize with last used path or home directory
     use_effect(move || {
         if current_path().is_none() {
             spawn(async move {
                 error.set(None);
-                match api::ralph::list_directory(None).await {
+                // Try to load last path from localStorage (web only)
+                let initial_path = load_last_path();
+                
+                match api::ralph::list_directory(initial_path.clone()).await {
                     Ok(listing) => {
-                        current_path.set(Some(listing.current_path.clone()));
+                        let path = listing.current_path.clone();
+                        current_path.set(Some(path.clone()));
+                        // Save to localStorage if we loaded from it
+                        if initial_path.is_some() {
+                            save_last_path(&path);
+                        }
                     }
-                    Err(e) => {
-                        error.set(Some(format!("Failed to load directory: {}", e)));
+                    Err(_) => {
+                        // If last path doesn't exist or is invalid, fall back to home
+                        match api::ralph::list_directory(None).await {
+                            Ok(listing) => {
+                                current_path.set(Some(listing.current_path.clone()));
+                            }
+                            Err(e) => {
+                                error.set(Some(format!("Failed to load directory: {}", e)));
+                            }
+                        }
                     }
                 }
             });
@@ -164,7 +211,8 @@ pub fn FilePicker(
                 selected_path.set(None); // Clear selection when navigating
                 match api::ralph::get_parent_directory(path).await {
                     Ok(Some(parent_path)) => {
-                        current_path.set(Some(parent_path));
+                        current_path.set(Some(parent_path.clone()));
+                        save_last_path(&parent_path);
                     }
                     Ok(None) => {
                         // Already at root, can't go up
@@ -186,7 +234,8 @@ pub fn FilePicker(
         selected_path.set(None); // Clear selection when navigating
         // Trigger resource reload by setting current_path
         // The resource will handle permission errors
-        current_path.set(Some(path));
+        current_path.set(Some(path.clone()));
+        save_last_path(&path);
     };
 
     let confirm_selection = move |_| {
@@ -199,6 +248,7 @@ pub fn FilePicker(
                     Ok(_) => {
                         // Path is valid directory, confirm selection
                         value.set(path_clone.clone());
+                        save_last_path(&path_clone);
                         selected_path.set(None); // Clear selection after confirming
                         if let Some(handler) = on_select {
                             handler.call(path_clone);
@@ -220,7 +270,25 @@ pub fn FilePicker(
     let handle_shortcut_navigate = move |path: String| {
         error.set(None);
         selected_path.set(None); // Clear selection when navigating
-        current_path.set(Some(path));
+        current_path.set(Some(path.clone()));
+        save_last_path(&path);
+    };
+
+    let navigate_to_home = move |_| {
+        error.set(None);
+        selected_path.set(None);
+        spawn(async move {
+            match api::ralph::list_directory(None).await {
+                Ok(listing) => {
+                    let path = listing.current_path.clone();
+                    current_path.set(Some(path.clone()));
+                    save_last_path(&path);
+                }
+                Err(e) => {
+                    error.set(Some(format!("Failed to load home directory: {}", e)));
+                }
+            }
+        });
     };
 
     rsx! {
@@ -269,7 +337,14 @@ pub fn FilePicker(
                         class: "btn-icon",
                         onclick: navigate_up,
                         disabled: current_path().is_none(),
+                        title: "Go up one directory",
                         "↑"
+                    }
+                    button {
+                        class: "btn-icon",
+                        onclick: navigate_to_home,
+                        title: "Go to home directory",
+                        "🏠"
                     }
                     span { class: "current-path",
                         if let Some(path) = current_path() {
