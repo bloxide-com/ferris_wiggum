@@ -5,18 +5,44 @@ fn DirectoryEntry(
     name: String,
     path: String,
     is_selected: bool,
+    is_protected: bool,
     on_select: EventHandler<String>,
     on_navigate: EventHandler<String>,
 ) -> Element {
     let path_for_select = path.clone();
     let path_for_navigate = path.clone();
+    let class_str = if is_protected {
+        if is_selected {
+            "file-picker-entry directory protected selected"
+        } else {
+            "file-picker-entry directory protected"
+        }
+    } else if is_selected {
+        "file-picker-entry directory selected"
+    } else {
+        "file-picker-entry directory"
+    };
+    
     rsx! {
         div {
-            class: if is_selected { "file-picker-entry directory selected" } else { "file-picker-entry directory" },
-            onclick: move |_| on_select.call(path_for_select.clone()),
-            ondoubleclick: move |_| on_navigate.call(path_for_navigate.clone()),
-            span { class: "entry-icon", "📁" }
+            class: class_str,
+            onclick: move |_| {
+                if !is_protected {
+                    on_select.call(path_for_select.clone());
+                }
+            },
+            ondoubleclick: move |_| {
+                if !is_protected {
+                    on_navigate.call(path_for_navigate.clone());
+                }
+            },
+            span { class: "entry-icon", 
+                if is_protected { "🔒" } else { "📁" }
+            }
             span { class: "entry-name", "{name}" }
+            if is_protected {
+                span { class: "protected-indicator", title: "Permission denied: You don't have access to this directory", "🔒" }
+            }
         }
     }
 }
@@ -34,6 +60,7 @@ fn DirectoryEntryWrapper(
             name: entry.name.clone(),
             path: entry.path.clone(),
             is_selected,
+            is_protected: entry.is_protected,
             on_select,
             on_navigate,
         }
@@ -157,6 +184,8 @@ pub fn FilePicker(
     let handle_directory_navigate = move |path: String| {
         error.set(None);
         selected_path.set(None); // Clear selection when navigating
+        // Trigger resource reload by setting current_path
+        // The resource will handle permission errors
         current_path.set(Some(path));
     };
 
@@ -306,9 +335,34 @@ pub fn FilePicker(
                             }
                         }
                     },
-                    Some(Err(e)) => rsx! {
-                        div { class: "error-message",
-                            "Error loading directory: {e}"
+                    Some(Err(e)) => {
+                        let error_str = e.to_string();
+                        let is_permission_error = error_str.contains("Permission denied");
+                        rsx! {
+                            div { class: "error-message",
+                                div { class: "error-icon", "⚠️" }
+                                div { class: "error-text",
+                                    div { class: "error-title",
+                                        if is_permission_error {
+                                            "Permission Denied"
+                                        } else {
+                                            "Error Loading Directory"
+                                        }
+                                    }
+                                    div { class: "error-detail", "{error_str}" }
+                                    if is_permission_error {
+                                        div { class: "error-help",
+                                            "You can navigate to other directories using the sidebar or path navigation."
+                                        }
+                                    }
+                                }
+                            }
+                            // Show empty directory list but keep navigation functional
+                            div { class: "file-picker-list",
+                                div { class: "empty-directory",
+                                    "Unable to load directory contents. Try navigating to another directory."
+                                }
+                            }
                         }
                     },
                     None => rsx! {

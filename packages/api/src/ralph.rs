@@ -296,6 +296,7 @@ pub struct DirectoryEntry {
     pub name: String,
     pub path: String,
     pub is_directory: bool,
+    pub is_protected: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -349,10 +350,19 @@ pub async fn list_directory(path: Option<String>) -> Result<DirectoryListing, Se
                         let is_directory = entry_path.is_dir();
                         let full_path = entry_path.to_string_lossy().to_string();
 
+                        // Check if directory is protected (permission denied)
+                        let is_protected = if is_directory {
+                            // Try to read the directory to check permissions
+                            std::fs::read_dir(&entry_path).is_err()
+                        } else {
+                            false
+                        };
+
                         entries.push(DirectoryEntry {
                             name,
                             path: full_path,
                             is_directory,
+                            is_protected,
                         });
                     }
                     Err(e) => {
@@ -363,10 +373,14 @@ pub async fn list_directory(path: Option<String>) -> Result<DirectoryListing, Se
             }
         }
         Err(e) => {
-            return Err(ServerFnError::new(format!(
-                "Permission denied or error reading directory: {}",
-                e
-            )));
+            // Check if this is a permission error
+            let error_kind = e.kind();
+            let error_msg = if error_kind == std::io::ErrorKind::PermissionDenied {
+                format!("Permission denied: You don't have access to read this directory ({})", target_path.display())
+            } else {
+                format!("Error reading directory: {}", e)
+            };
+            return Err(ServerFnError::new(error_msg));
         }
     }
 
