@@ -52,6 +52,22 @@ fn FileEntry(name: String) -> Element {
 }
 
 #[component]
+fn ShortcutItem(
+    dir: api::ralph::CommonDirectory,
+    on_navigate: EventHandler<String>,
+) -> Element {
+    let dir_path = dir.path.clone();
+    rsx! {
+        div {
+            class: "shortcut-item",
+            onclick: move |_| on_navigate.call(dir_path.clone()),
+            span { class: "shortcut-icon", "{dir.icon}" }
+            span { class: "shortcut-name", "{dir.name}" }
+        }
+    }
+}
+
+#[component]
 pub fn FilePicker(
     value: Signal<String>,
     on_select: Option<EventHandler<String>>,
@@ -60,6 +76,11 @@ pub fn FilePicker(
     let mut selected_path = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
     let mut search_query = use_signal(|| String::new());
+
+    // Resource for common directories
+    let common_dirs = use_resource(move || async move {
+        api::ralph::get_common_directories().await
+    });
 
     // Resource that reloads when current_path changes
     let directory_listing = use_resource(move || {
@@ -167,8 +188,51 @@ pub fn FilePicker(
         search_query.set(String::new());
     };
 
+    let handle_shortcut_navigate = move |path: String| {
+        error.set(None);
+        selected_path.set(None); // Clear selection when navigating
+        current_path.set(Some(path));
+    };
+
     rsx! {
         div { class: "file-picker",
+            // Sidebar with common directories
+            div { class: "file-picker-sidebar",
+                div { class: "file-picker-shortcuts-header",
+                    "Quick Access"
+                }
+                div { class: "file-picker-shortcuts",
+                    match common_dirs() {
+                        Some(Ok(dirs)) => rsx! {
+                            if dirs.is_empty() {
+                                div { class: "shortcuts-empty",
+                                    "No shortcuts available"
+                                }
+                            } else {
+                                for dir in dirs.iter() {
+                                    ShortcutItem {
+                                        dir: dir.clone(),
+                                        on_navigate: handle_shortcut_navigate,
+                                    }
+                                }
+                            }
+                        },
+                        Some(Err(_e)) => rsx! {
+                            div { class: "shortcuts-error",
+                                "Failed to load shortcuts"
+                            }
+                        },
+                        None => rsx! {
+                            div { class: "shortcuts-loading",
+                                "Loading shortcuts..."
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Main file browser
+            div { class: "file-picker-main",
             // Current path display and navigation
             div { class: "file-picker-header",
                 div { class: "file-picker-path",
@@ -275,6 +339,7 @@ pub fn FilePicker(
                         "Select"
                     }
                 }
+            }
             }
         }
     }

@@ -400,11 +400,74 @@
 
 /* File Picker */
 .file-picker {
+    display: flex;
+    gap: 1rem;
     background: #fff;
     border: 1px solid #e1e8ed;
     border-radius: 8px;
     padding: 1rem;
     margin-top: 0.5rem;
+}
+
+.file-picker-sidebar {
+    flex-shrink: 0;
+    width: 200px;
+    border-right: 1px solid #e1e8ed;
+    padding-right: 1rem;
+}
+
+.file-picker-shortcuts-header {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.file-picker-shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.875rem;
+}
+
+.shortcut-item:hover {
+    background: #f9fafb;
+}
+
+.shortcut-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.shortcut-name {
+    flex: 1;
+    color: #374151;
+}
+
+.shortcuts-empty,
+.shortcuts-loading,
+.shortcuts-error {
+    padding: 1rem;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.file-picker-main {
+    flex: 1;
+    min-width: 0;
 }
 
 .file-picker-header {

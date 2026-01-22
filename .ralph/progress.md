@@ -61,3 +61,24 @@
 - When filtering entries, show different empty state messages based on whether filtering is active or the source is empty
 - Search input should have focus styles for better UX (border color change and subtle shadow)
 ---
+
+## 2026-01-22 - US-004
+- Implemented quick access sidebar with common directory shortcuts in FilePicker component
+- Added server function `get_common_directories` that returns platform-appropriate common locations (Home, Documents, Desktop, Downloads, and common project folders)
+- Created sidebar UI with clickable shortcuts that navigate to the selected directory
+- Shortcuts display with icons and names for better visual identification
+- Sidebar is positioned on the left side of the file picker with proper styling
+- Files changed:
+  - `packages/api/src/ralph.rs` - Added `get_common_directories` server function and `CommonDirectory` struct
+  - `packages/ui/src/ralph/file_picker.rs` - Added sidebar with shortcuts, `ShortcutItem` component, and navigation handler
+  - `packages/web/assets/styling/ralph.css` - Added styles for sidebar, shortcuts, and shortcut items
+  - `prd.json` - Updated US-004 to passes: true
+
+**Learnings for future iterations:**
+- The `dirs` crate provides platform-specific directory access: `home_dir()`, `document_dir()`, `desktop_dir()`, `download_dir()` - these automatically work on Linux, macOS, and Windows
+- When checking for common project folders, iterate through common names and only add the first one that exists to avoid duplicates
+- Sidebar layout uses flexbox with `flex-shrink: 0` to maintain fixed width while main content area uses `flex: 1` to fill remaining space
+- Shortcut items should use hover states for better UX feedback
+- Create wrapper components (like `ShortcutItem`) when you need to use `let` statements or complex logic within `for` loops in `rsx!`
+- The `use_resource` hook automatically handles loading states - use `None` for loading, `Some(Ok(...))` for success, and `Some(Err(...))` for errors
+---

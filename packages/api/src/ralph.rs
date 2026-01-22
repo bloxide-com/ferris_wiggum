@@ -398,5 +398,80 @@ pub async fn get_parent_directory(path: String) -> Result<Option<String>, Server
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct CommonDirectory {
+    pub name: String,
+    pub path: String,
+    pub icon: String,
+}
+
+#[server]
+pub async fn get_common_directories() -> Result<Vec<CommonDirectory>, ServerFnError> {
+    let mut directories = Vec::new();
+
+    // Home directory
+    if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy().to_string();
+        directories.push(CommonDirectory {
+            name: "Home".to_string(),
+            path: home_str.clone(),
+            icon: "🏠".to_string(),
+        });
+
+        // Documents directory
+        if let Some(documents) = dirs::document_dir() {
+            directories.push(CommonDirectory {
+                name: "Documents".to_string(),
+                path: documents.to_string_lossy().to_string(),
+                icon: "📄".to_string(),
+            });
+        }
+
+        // Desktop directory
+        if let Some(desktop) = dirs::desktop_dir() {
+            directories.push(CommonDirectory {
+                name: "Desktop".to_string(),
+                path: desktop.to_string_lossy().to_string(),
+                icon: "🖥️".to_string(),
+            });
+        }
+
+        // Downloads directory
+        if let Some(downloads) = dirs::download_dir() {
+            directories.push(CommonDirectory {
+                name: "Downloads".to_string(),
+                path: downloads.to_string_lossy().to_string(),
+                icon: "⬇️".to_string(),
+            });
+        }
+
+        // Common project folders (check if they exist)
+        let project_folders = vec![
+            ("Projects", "projects"),
+            ("Projects", "Projects"),
+            ("Code", "code"),
+            ("Code", "Code"),
+            ("Workspace", "workspace"),
+            ("Workspace", "Workspace"),
+            ("Dev", "dev"),
+            ("Dev", "Dev"),
+        ];
+
+        for (display_name, folder_name) in project_folders {
+            let project_path = home.join(folder_name);
+            if project_path.exists() && project_path.is_dir() {
+                directories.push(CommonDirectory {
+                    name: display_name.to_string(),
+                    path: project_path.to_string_lossy().to_string(),
+                    icon: "💻".to_string(),
+                });
+                break; // Only add one project folder to avoid duplicates
+            }
+        }
+    }
+
+    Ok(directories)
+}
+
 // Activity Streaming
 // Note: SSE streaming will be implemented in the web package using use_resource
