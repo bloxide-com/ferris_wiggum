@@ -4,14 +4,38 @@ use dioxus::prelude::*;
 fn DirectoryEntry(
     name: String,
     path: String,
+    is_selected: bool,
+    on_select: EventHandler<String>,
     on_navigate: EventHandler<String>,
 ) -> Element {
+    let path_for_select = path.clone();
+    let path_for_navigate = path.clone();
     rsx! {
         div {
-            class: "file-picker-entry directory",
-            onclick: move |_| on_navigate.call(path.clone()),
+            class: if is_selected { "file-picker-entry directory selected" } else { "file-picker-entry directory" },
+            onclick: move |_| on_select.call(path_for_select.clone()),
+            ondoubleclick: move |_| on_navigate.call(path_for_navigate.clone()),
             span { class: "entry-icon", "📁" }
             span { class: "entry-name", "{name}" }
+        }
+    }
+}
+
+#[component]
+fn DirectoryEntryWrapper(
+    entry: api::ralph::DirectoryEntry,
+    selected_path: Signal<Option<String>>,
+    on_select: EventHandler<String>,
+    on_navigate: EventHandler<String>,
+) -> Element {
+    let is_selected = selected_path() == Some(entry.path.clone());
+    rsx! {
+        DirectoryEntry {
+            name: entry.name.clone(),
+            path: entry.path.clone(),
+            is_selected,
+            on_select,
+            on_navigate,
         }
     }
 }
@@ -33,6 +57,7 @@ pub fn FilePicker(
     on_select: Option<EventHandler<String>>,
 ) -> Element {
     let mut current_path = use_signal(|| None::<String>);
+    let mut selected_path = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
 
     // Resource that reloads when current_path changes
@@ -73,6 +98,7 @@ pub fn FilePicker(
         if let Some(path) = current {
             spawn(async move {
                 error.set(None);
+                selected_path.set(None); // Clear selection when navigating
                 match api::ralph::get_parent_directory(path).await {
                     Ok(Some(parent_path)) => {
                         current_path.set(Some(parent_path));
@@ -82,6 +108,40 @@ pub fn FilePicker(
                     }
                     Err(e) => {
                         error.set(Some(format!("Failed to navigate up: {}", e)));
+                    }
+                }
+            });
+        }
+    };
+
+    let handle_directory_select = move |path: String| {
+        selected_path.set(Some(path.clone()));
+    };
+
+    let handle_directory_navigate = move |path: String| {
+        error.set(None);
+        selected_path.set(None); // Clear selection when navigating
+        current_path.set(Some(path));
+    };
+
+    let confirm_selection = move |_| {
+        if let Some(path) = selected_path() {
+            // Validate that the path is a directory
+            let path_clone = path.clone();
+            spawn(async move {
+                error.set(None);
+                match api::ralph::list_directory(Some(path_clone.clone())).await {
+                    Ok(_) => {
+                        // Path is valid directory, confirm selection
+                        value.set(path_clone.clone());
+                        selected_path.set(None); // Clear selection after confirming
+                        if let Some(handler) = on_select {
+                            handler.call(path_clone);
+                        }
+                    }
+                    Err(e) => {
+                        error.set(Some(format!("Cannot select: {}", e)));
+                        selected_path.set(None);
                     }
                 }
             });
@@ -127,13 +187,11 @@ pub fn FilePicker(
                         } else {
                             for entry in entries().iter() {
                                 if entry.is_directory {
-                                    DirectoryEntry {
-                                        name: entry.name.clone(),
-                                        path: entry.path.clone(),
-                                        on_navigate: move |path| {
-                                            error.set(None);
-                                            current_path.set(Some(path));
-                                        }
+                                    DirectoryEntryWrapper {
+                                        entry: entry.clone(),
+                                        selected_path,
+                                        on_select: handle_directory_select,
+                                        on_navigate: handle_directory_navigate,
                                     }
                                 } else {
                                     FileEntry {
@@ -156,7 +214,7 @@ pub fn FilePicker(
                 }
             }
 
-            // Selected path display
+            // Selected path display and confirmation
             div { class: "file-picker-selection",
                 label { "Selected Path:" }
                 input {
@@ -165,18 +223,15 @@ pub fn FilePicker(
                     oninput: move |e| value.set(e.value()),
                     placeholder: "No directory selected",
                 }
-                if !value().is_empty() {
+                if let Some(selected) = selected_path() {
+                    div { class: "selection-preview",
+                        span { "Selected: " }
+                        span { class: "selected-path-preview", "{selected}" }
+                    }
                     button {
                         class: "btn btn-primary",
-                        onclick: move |_| {
-                            if let Some(path) = current_path() {
-                                value.set(path.clone());
-                                if let Some(handler) = on_select {
-                                    handler.call(path);
-                                }
-                            }
-                        },
-                        "Select Current Directory"
+                        onclick: confirm_selection,
+                        "Select"
                     }
                 }
             }
