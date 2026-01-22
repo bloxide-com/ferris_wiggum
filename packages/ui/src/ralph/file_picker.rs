@@ -59,6 +59,7 @@ pub fn FilePicker(
     let mut current_path = use_signal(|| None::<String>);
     let mut selected_path = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
+    let mut search_query = use_signal(|| String::new());
 
     // Resource that reloads when current_path changes
     let directory_listing = use_resource(move || {
@@ -74,6 +75,20 @@ pub fn FilePicker(
             .and_then(|r| r.ok())
             .map(|l| l.entries.clone())
             .unwrap_or_default()
+    });
+
+    // Filter entries based on search query (case-insensitive)
+    let filtered_entries = use_memo(move || {
+        let query = search_query().to_lowercase();
+        if query.is_empty() {
+            entries().clone()
+        } else {
+            entries()
+                .iter()
+                .filter(|entry| entry.name.to_lowercase().contains(&query))
+                .cloned()
+                .collect::<Vec<_>>()
+        }
     });
 
     // Initialize with home directory if not set
@@ -148,6 +163,10 @@ pub fn FilePicker(
         }
     };
 
+    let clear_search = move |_| {
+        search_query.set(String::new());
+    };
+
     rsx! {
         div { class: "file-picker",
             // Current path display and navigation
@@ -169,6 +188,24 @@ pub fn FilePicker(
                 }
             }
 
+            // Search input
+            div { class: "file-picker-search",
+                input {
+                    r#type: "text",
+                    placeholder: "Search directories...",
+                    value: "{search_query}",
+                    oninput: move |e| search_query.set(e.value()),
+                    class: "search-input",
+                }
+                if !search_query().is_empty() {
+                    button {
+                        class: "btn-icon search-clear",
+                        onclick: clear_search,
+                        "✕"
+                    }
+                }
+            }
+
             // Error message
             if let Some(err) = error() {
                 div { class: "error-message",
@@ -180,12 +217,16 @@ pub fn FilePicker(
             div { class: "file-picker-list",
                 match directory_listing() {
                     Some(Ok(_)) => rsx! {
-                        if entries().is_empty() {
+                        if filtered_entries().is_empty() {
                             div { class: "empty-directory",
-                                "This directory is empty"
+                                if search_query().is_empty() {
+                                    "This directory is empty"
+                                } else {
+                                    "No directories match your search"
+                                }
                             }
                         } else {
-                            for entry in entries().iter() {
+                            for entry in filtered_entries().iter() {
                                 if entry.is_directory {
                                     DirectoryEntryWrapper {
                                         entry: entry.clone(),

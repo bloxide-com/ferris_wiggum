@@ -41,3 +41,23 @@
 - Selection state should be cleared when navigating to maintain clean UI state
 - Validate selections server-side before confirming to ensure directory still exists and is accessible
 ---
+
+## 2026-01-22 - US-003
+- Implemented search and filter functionality for directories in FilePicker component
+- Added search input field that filters directories as user types (case-insensitive)
+- Added clear button (✕) that appears when search query is not empty
+- Filtered entries are computed using `use_memo` for performance (no delay)
+- Search filters directories by name matching (case-insensitive)
+- Empty state message changes based on whether search is active or directory is empty
+- Files changed:
+  - `packages/ui/src/ralph/file_picker.rs` - Added search_query signal, filtered_entries memo, search UI, and clear handler
+  - `packages/web/assets/styling/ralph.css` - Added styles for search input and clear button
+  - `prd.json` - Updated US-003 to passes: true
+
+**Learnings for future iterations:**
+- Use `use_memo` to filter collections based on reactive state (like search queries) - this ensures efficient re-computation only when dependencies change
+- Case-insensitive search can be implemented by converting both query and entry names to lowercase before comparison
+- Conditional rendering of UI elements (like clear button) can be done with `if` statements directly in `rsx!`
+- When filtering entries, show different empty state messages based on whether filtering is active or the source is empty
+- Search input should have focus styles for better UX (border color change and subtle shadow)
+---
