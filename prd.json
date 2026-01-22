@@ -1,0 +1,120 @@
+{
+  "project": "Project Repository File Picker",
+  "branch_name": "ralph/file-picker-3",
+  "description": "Users currently have no way to browse and select project repositories through the UI. This creates friction in the workflow when creating sessions or configuring projects, requiring users to manually type paths or work outside the application to determine the correct repository location.",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Browse File System",
+      "description": "As a** Ralph user I want** to browse my local file system in an intuitive interface So that** I can easily navigate to my project repository without memorizing the full path",
+      "acceptance_criteria": [
+        "File picker displays current directory path",
+        "User can navigate up to parent directories",
+        "User can click into subdirectories",
+        "Directories are visually distinguished from files",
+        "File picker shows a tree or list view of directories",
+        "UI is responsive and works across desktop, web, and mobile platforms",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Select Repository Directory",
+      "description": "As a** Ralph user I want** to select a specific directory as my project repository So that** I can proceed with session creation or configuration",
+      "acceptance_criteria": [
+        "User can click a directory to select it",
+        "Selected directory is visually highlighted",
+        "\"Select\" or \"Choose\" button confirms the selection",
+        "Selected path is returned to the parent component",
+        "User cannot select files (only directories)",
+        "Selection is validated before confirmation",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Search and Filter Directories",
+      "description": "As a** Ralph user I want** to search or filter directories by name So that** I can quickly find my repository in large directory structures",
+      "acceptance_criteria": [
+        "Search input field is visible in file picker",
+        "Directories are filtered as user types",
+        "Search is case-insensitive",
+        "Search highlights or filters matching directories",
+        "Clear button resets search filter",
+        "Search works without delay or performance issues",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Quick Access to Common Locations",
+      "description": "As a** Ralph user I want** quick access to common directories (Home, Documents, Projects) So that** I can navigate to frequently used locations faster",
+      "acceptance_criteria": [
+        "Sidebar or shortcut list shows common locations",
+        "Clicking a shortcut navigates to that directory",
+        "Common locations include: Home, Documents, Desktop, common project folders",
+        "Shortcuts are platform-appropriate (Linux, macOS, Windows)",
+        "Recent or favorited directories appear if applicable",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Handle Permission Errors Gracefully",
+      "description": "As a** Ralph user I want** clear feedback when I try to access restricted directories So that** I understand why I cannot navigate to certain paths",
+      "acceptance_criteria": [
+        "Permission denied errors are caught",
+        "User sees a clear error message",
+        "File picker remains functional after error",
+        "User can navigate to alternate directories",
+        "Protected directories show a lock icon or indicator",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Remember Last Selected Path",
+      "description": "As a** Ralph user I want** the file picker to remember my last selected or browsed directory So that** I can quickly return to my working directories",
+      "acceptance_criteria": [
+        "File picker opens to last used directory by default",
+        "Last path is persisted between sessions",
+        "User can override and start from home if needed",
+        "Path memory is specific to the user/context",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Visual Git Repository Indicator",
+      "description": "As a** Ralph user I want** to see visual indicators for directories that contain Git repositories So that** I can quickly identify valid project repositories",
+      "acceptance_criteria": [
+        "Directories with `.git` folder show a Git icon or indicator",
+        "Indicator is visible in the directory list",
+        "Non-Git directories do not show the indicator",
+        "User can filter to show only Git repositories",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

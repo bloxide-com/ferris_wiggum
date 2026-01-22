@@ -21,3 +21,23 @@
 - The `dirs` crate provides cross-platform access to standard directories (home, documents, etc.)
 - File picker component uses `use_resource` hook which automatically reloads when dependencies (like `current_path` signal) change
 ---
+
+## 2025-01-27 - US-002
+- Implemented directory selection functionality in FilePicker component
+- Added single-click to select directories (double-click navigates into them)
+- Added visual highlighting for selected directories (blue background with left border)
+- Added "Select" button that appears when a directory is selected
+- Implemented validation before confirming selection (checks directory exists via API)
+- Selected path is returned to parent component via value signal and optional on_select handler
+- Files changed:
+  - `packages/ui/src/ralph/file_picker.rs` - Added selection state, handlers, and DirectoryEntryWrapper component
+  - `packages/web/assets/styling/ralph.css` - Added styles for selected directory and selection preview
+  - `prd.json` - Updated US-002 to passes: true
+
+**Learnings for future iterations:**
+- When using multiple event handlers (onclick, ondoubleclick) on the same element, clone values before creating closures to avoid move issues
+- Use `ondoubleclick` instead of deprecated `ondblclick` in Dioxus 0.7
+- Cannot use `let` statements directly inside `for` loops within `rsx!` - create wrapper components instead
+- Selection state should be cleared when navigating to maintain clean UI state
+- Validate selections server-side before confirming to ensure directory still exists and is accessible
+---
