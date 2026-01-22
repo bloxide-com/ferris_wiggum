@@ -297,6 +297,7 @@ pub struct DirectoryEntry {
     pub path: String,
     pub is_directory: bool,
     pub is_protected: bool,
+    pub is_git_repository: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -358,11 +359,20 @@ pub async fn list_directory(path: Option<String>) -> Result<DirectoryListing, Se
                             false
                         };
 
+                        // Check if directory contains a Git repository (.git folder)
+                        let is_git_repository = if is_directory && !is_protected {
+                            let git_path = entry_path.join(".git");
+                            git_path.exists() && git_path.is_dir()
+                        } else {
+                            false
+                        };
+
                         entries.push(DirectoryEntry {
                             name,
                             path: full_path,
                             is_directory,
                             is_protected,
+                            is_git_repository,
                         });
                     }
                     Err(e) => {

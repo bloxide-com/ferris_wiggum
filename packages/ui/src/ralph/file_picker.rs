@@ -37,6 +37,7 @@ fn DirectoryEntry(
     path: String,
     is_selected: bool,
     is_protected: bool,
+    is_git_repository: bool,
     on_select: EventHandler<String>,
     on_navigate: EventHandler<String>,
 ) -> Element {
@@ -71,6 +72,9 @@ fn DirectoryEntry(
                 if is_protected { "🔒" } else { "📁" }
             }
             span { class: "entry-name", "{name}" }
+            if is_git_repository {
+                span { class: "git-indicator", title: "Git repository", "🔀" }
+            }
             if is_protected {
                 span { class: "protected-indicator", title: "Permission denied: You don't have access to this directory", "🔒" }
             }
@@ -92,6 +96,7 @@ fn DirectoryEntryWrapper(
             path: entry.path.clone(),
             is_selected,
             is_protected: entry.is_protected,
+            is_git_repository: entry.is_git_repository,
             on_select,
             on_navigate,
         }
@@ -134,6 +139,7 @@ pub fn FilePicker(
     let mut selected_path = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
     let mut search_query = use_signal(|| String::new());
+    let mut show_only_git = use_signal(|| false);
 
     // Resource for common directories
     let common_dirs = use_resource(move || async move {
@@ -156,18 +162,27 @@ pub fn FilePicker(
             .unwrap_or_default()
     });
 
-    // Filter entries based on search query (case-insensitive)
+    // Filter entries based on search query (case-insensitive) and Git filter
     let filtered_entries = use_memo(move || {
         let query = search_query().to_lowercase();
-        if query.is_empty() {
-            entries().clone()
-        } else {
-            entries()
-                .iter()
-                .filter(|entry| entry.name.to_lowercase().contains(&query))
-                .cloned()
-                .collect::<Vec<_>>()
-        }
+        let git_only = show_only_git();
+        
+        entries()
+            .iter()
+            .filter(|entry| {
+                // Apply Git filter if enabled
+                if git_only && !entry.is_git_repository {
+                    return false;
+                }
+                // Apply search filter
+                if query.is_empty() {
+                    true
+                } else {
+                    entry.name.to_lowercase().contains(&query)
+                }
+            })
+            .cloned()
+            .collect::<Vec<_>>()
     });
 
     // Initialize with last used path or home directory
@@ -356,7 +371,7 @@ pub fn FilePicker(
                 }
             }
 
-            // Search input
+            // Search input and Git filter
             div { class: "file-picker-search",
                 input {
                     r#type: "text",
@@ -371,6 +386,14 @@ pub fn FilePicker(
                         onclick: clear_search,
                         "✕"
                     }
+                }
+                label { class: "git-filter-toggle",
+                    input {
+                        r#type: "checkbox",
+                        checked: show_only_git(),
+                        onchange: move |e| show_only_git.set(e.checked()),
+                    }
+                    span { "Show only Git repositories" }
                 }
             }
 

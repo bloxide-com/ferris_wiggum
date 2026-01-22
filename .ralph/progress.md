@@ -131,3 +131,26 @@
 - Provide a way for users to override persisted state (like Home button) for better UX
 - The `use_effect` hook runs after hydration, so browser APIs are safe to access inside it
 ---
+
+## 2026-01-22 - US-007
+- Implemented visual Git repository indicators in FilePicker component
+- Added `is_git_repository` field to `DirectoryEntry` struct to track directories containing `.git` folders
+- Updated `list_directory` server function to detect Git repositories by checking for `.git` directory existence
+- Added Git indicator icon (🔀) that appears next to directories containing Git repositories
+- Added filter toggle checkbox to show only Git repositories when enabled
+- Updated `filtered_entries` memo to respect both search query and Git filter
+- Added CSS styles for Git indicator (green color) and filter toggle checkbox
+- Files changed:
+  - `packages/api/src/ralph.rs` - Added `is_git_repository` field to DirectoryEntry, added Git detection logic in `list_directory`
+  - `packages/ui/src/ralph/file_picker.rs` - Added Git indicator to DirectoryEntry component, added `show_only_git` signal and filter toggle UI, updated filtering logic
+  - `packages/web/assets/styling/ralph.css` - Added styles for Git indicator and filter toggle
+  - `prd.json` - Updated US-007 to passes: true
+
+**Learnings for future iterations:**
+- Check for Git repositories by testing if `.git` directory exists and is a directory (not just a file)
+- Git detection should only run on accessible directories (skip protected directories to avoid unnecessary checks)
+- When adding filter toggles, combine them with existing filters (like search) in a single memoized computation for efficiency
+- Use checkbox inputs with labels for better accessibility and UX
+- Git indicators should be visually distinct (green color) and positioned consistently (right side before protected indicator)
+- Filter toggles should be placed near search inputs for logical grouping of filtering controls
+---
