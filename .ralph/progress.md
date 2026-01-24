@@ -192,3 +192,27 @@
 - When adding new model options, place the most commonly used or recommended option first in the dropdown for better UX
 - Unit tests for model handling can verify that string values are accepted without needing to actually spawn cursor-agent processes
 ---
+
+## 2026-01-24 - US-003
+- Split model settings into separate `prd_model` and `execution_model` fields in `SessionConfig`
+- Updated PRD generation functions (`start_prd_conversation`, `send_prd_message`) to use `prd_model` from session config
+- Updated execution phase (`run_iteration` in `SessionManager`) to use `execution_model` when creating `CursorRunner`
+- Updated UI to set both fields (currently both set to same value from single dropdown; UI split will come in US-004)
+- Updated session dashboard to display both PRD Model and Execution Model stats
+- Added unit tests to verify `SessionConfig` structure supports separate models
+- Files changed:
+  - `packages/ralph/src/types.rs` - Added `prd_model` and `execution_model` fields to `SessionConfig`, updated `Default` implementation
+  - `packages/api/src/ralph.rs` - Updated `start_prd_conversation` and `send_prd_message` to use `prd_model`
+  - `packages/ralph/src/session.rs` - Updated `run_iteration` to use `execution_model`, added unit test
+  - `packages/ralph/src/conversation.rs` - Added unit test for PRD model usage
+  - `packages/web/src/views/ralph/new_session.rs` - Updated to set both `prd_model` and `execution_model` fields
+  - `packages/ui/src/ralph/session_dashboard.rs` - Updated to display both model fields in stats
+  - `prd.json` - Updated US-003 to passes: true
+
+**Learnings for future iterations:**
+- When splitting a single field into multiple fields, update all access points: struct definition, Default impl, API functions, execution code, UI creation, and UI display
+- The UI currently sets both fields to the same value from a single dropdown - this maintains backward compatibility while preparing for the UI split in US-004
+- Session dashboard now shows both "PRD Model" and "Execution Model" stats to make the separation visible to users
+- Unit tests verify the structure supports separate models even if integration tests aren't running - the types.rs tests confirm the config structure is correct
+- Both models default to "opus-4.5-thinking" in the Default implementation for consistency
+---
