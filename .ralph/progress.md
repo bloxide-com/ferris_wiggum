@@ -216,3 +216,24 @@
 - Unit tests verify the structure supports separate models even if integration tests aren't running - the types.rs tests confirm the config structure is correct
 - Both models default to "opus-4.5-thinking" in the Default implementation for consistency
 ---
+
+## 2026-01-24 - US-004
+- Split model dropdown into two separate dropdowns: "PRD Model" and "Execution Model"
+- Replaced single `model` signal with `prd_model` and `execution_model` signals
+- Both dropdowns include all model options including "Auto" option
+- Updated form submission to use both model values independently
+- Added form styles to ralph.css for proper layout (form-group, form-row, form-help, etc.)
+- Form now displays both dropdowns side-by-side in a form-row layout
+- Files changed:
+  - `packages/web/src/views/ralph/new_session.rs` - Split model dropdown into two separate dropdowns, updated signals and form submission
+  - `packages/web/assets/styling/ralph.css` - Added form styles for new session page (form-group, form-row, form-help, session-form, etc.)
+  - `prd.json` - Updated US-004 to passes: true
+
+**Learnings for future iterations:**
+- When splitting UI controls, replace the single signal with separate signals for each control
+- Use `form-row` class with CSS grid (`grid-template-columns: 1fr 1fr`) to display related form fields side-by-side
+- Both dropdowns should have identical option lists to maintain consistency
+- Form help text (`form-help` class) provides context for each field and improves UX
+- The form submission already uses `SessionConfig` with separate fields, so no backend changes were needed
+- Default values for both models are set to "opus-4.5-thinking" to match the backend defaults
+---

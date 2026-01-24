@@ -5,7 +5,8 @@ use ui::ralph::{PrdEditor, PrdConversation, FilePicker};
 #[component]
 pub fn RalphNewSession() -> Element {
     let project_path = use_signal(|| String::new());
-    let mut model = use_signal(|| "opus-4.5-thinking".to_string());
+    let mut prd_model = use_signal(|| "opus-4.5-thinking".to_string());
+    let mut execution_model = use_signal(|| "opus-4.5-thinking".to_string());
     let mut max_iterations = use_signal(|| 20);
     let mut warn_threshold = use_signal(|| 70_000);
     let mut rotate_threshold = use_signal(|| 80_000);
@@ -24,10 +25,9 @@ pub fn RalphNewSession() -> Element {
             creating.set(true);
             error.set(None);
 
-            let model_value = model();
             let config = SessionConfig {
-                prd_model: model_value.clone(),
-                execution_model: model_value,
+                prd_model: prd_model(),
+                execution_model: execution_model(),
                 max_iterations: max_iterations(),
                 warn_threshold: warn_threshold(),
                 rotate_threshold: rotate_threshold(),
@@ -95,17 +95,35 @@ pub fn RalphNewSession() -> Element {
                     p { class: "form-help", "Browse and select your project's git repository directory" }
                 }
 
-                div { class: "form-group",
-                    label { "for": "model", "Model" }
-                    select {
-                        id: "model",
-                        value: "{model}",
-                        onchange: move |e| model.set(e.value()),
-                        option { value: "auto", "Auto (cursor-agent picks best model)" }
-                        option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
-                        option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
-                        option { value: "gpt-5.2-high", "GPT 5.2 High" }
-                        option { value: "composer-1", "Composer 1" }
+                div { class: "form-row",
+                    div { class: "form-group",
+                        label { "for": "prd-model", "PRD Model" }
+                        select {
+                            id: "prd-model",
+                            value: "{prd_model}",
+                            onchange: move |e| prd_model.set(e.value()),
+                            option { value: "auto", "Auto (cursor-agent picks best model)" }
+                            option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
+                            option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
+                            option { value: "gpt-5.2-high", "GPT 5.2 High" }
+                            option { value: "composer-1", "Composer 1" }
+                        }
+                        p { class: "form-help", "Model used for PRD generation" }
+                    }
+
+                    div { class: "form-group",
+                        label { "for": "execution-model", "Execution Model" }
+                        select {
+                            id: "execution-model",
+                            value: "{execution_model}",
+                            onchange: move |e| execution_model.set(e.value()),
+                            option { value: "auto", "Auto (cursor-agent picks best model)" }
+                            option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
+                            option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
+                            option { value: "gpt-5.2-high", "GPT 5.2 High" }
+                            option { value: "composer-1", "Composer 1" }
+                        }
+                        p { class: "form-help", "Model used for code execution" }
                     }
                 }
 
