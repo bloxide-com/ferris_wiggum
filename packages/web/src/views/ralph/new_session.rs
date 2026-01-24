@@ -1,10 +1,14 @@
 use dioxus::prelude::*;
-use ralph::{SessionConfig, Prd};
-use ui::ralph::{PrdEditor, PrdConversation, FilePicker};
+use ralph::{Prd, SessionConfig};
+use ui::ralph::{FilePicker, PrdConversation, PrdEditor};
 
 #[component]
 pub fn RalphNewSession() -> Element {
-    let project_path = use_signal(|| String::new());
+    // `project_path_input` tracks transient browsing/typing state.
+    // `locked_project_path` is only updated when the user explicitly clicks "Select" in the FilePicker.
+    // Session creation must use the locked value.
+    let project_path_input = use_signal(|| String::new());
+    let mut locked_project_path = use_signal(|| None::<String>);
     let mut model = use_signal(|| "opus-4.5-thinking".to_string());
     let mut max_iterations = use_signal(|| 20);
     let mut warn_threshold = use_signal(|| 70_000);
@@ -18,11 +22,38 @@ pub fn RalphNewSession() -> Element {
     let mut prd_mode = use_signal(|| PrdMode::Conversation);
     let mut generated_prd_markdown = use_signal(|| None::<String>);
 
-    let create_session = move |e: FormEvent| {
-        e.prevent_default();
+    let can_create_session = use_memo(move || {
+        let locked = locked_project_path();
+        if let Some(locked) = locked {
+            !locked.trim().is_empty() && locked == project_path_input()
+        } else {
+            false
+        }
+    });
+
+    let create_session = move |_| {
         spawn(async move {
             creating.set(true);
             error.set(None);
+
+            let locked = locked_project_path();
+            let Some(project_path) = locked else {
+                error.set(Some(
+                    "Please click “Select” in the file picker to confirm a valid repo path."
+                        .to_string(),
+                ));
+                creating.set(false);
+                return;
+            };
+
+            if project_path != project_path_input() {
+                error.set(Some(
+                    "The project path changed since you clicked “Select”. Click “Select” again to confirm the updated path."
+                        .to_string(),
+                ));
+                creating.set(false);
+                return;
+            }
 
             let config = SessionConfig {
                 model: model(),
@@ -37,7 +68,7 @@ pub fn RalphNewSession() -> Element {
                 open_pr: open_pr(),
             };
 
-            match api::ralph::create_session(project_path(), config).await {
+            match api::ralph::create_session(project_path, config).await {
                 Ok(session) => {
                     session_id.set(Some(session.id));
                     step.set(SetupStep::Prd);
@@ -80,17 +111,34 @@ pub fn RalphNewSession() -> Element {
             }
 
             if matches!(step(), SetupStep::Config) {
-                form { 
+                div {
                     class: "session-form",
-                    onsubmit: create_session,
 
                     div { class: "form-group",
                     label { "for": "project-path", "Project Path" }
                     FilePicker {
-                        value: project_path,
-                        on_select: None,
+                        value: project_path_input,
+                        on_select: move |path: String| {
+                            locked_project_path.set(Some(path));
+                        },
                     }
                     p { class: "form-help", "Browse and select your project's git repository directory" }
+                    if let Some(locked) = locked_project_path() {
+                        p { class: "form-help",
+                            strong { "Locked path: " }
+                            "{locked}"
+                        }
+                        if locked != project_path_input() {
+                            p { class: "form-help",
+                                "Path changed. Click “Select” again to update the locked path."
+                            }
+                        }
+                    } else {
+                        p { class: "form-help",
+                            strong { "Locked path: " }
+                            "none (click “Select” to confirm)"
+                        }
+                    }
                 }
 
                 div { class: "form-group",
@@ -185,10 +233,11 @@ pub fn RalphNewSession() -> Element {
 
                     div { class: "form-actions",
                         button {
-                            r#type: "submit",
-                            disabled: creating() || project_path().is_empty(),
+                            r#type: "button",
+                            onclick: create_session,
+                            disabled: creating() || !can_create_session(),
                             class: "btn btn-primary",
-                            if creating() { "Creating..." } else { "Next: Set PRD" }
+                            if creating() { "Creating..." } else { "Create session" }
                         }
 
                         Link {
@@ -199,12 +248,12 @@ pub fn RalphNewSession() -> Element {
                     }
                 }
             }
-            
+
             if matches!(step(), SetupStep::Prd) {
                 if let Some(id) = session_id() {
                     div { class: "prd-step",
                         h2 { "Set Product Requirements Document" }
-                        p { 
+                        p {
                             "Define the stories you want Ralph to work on. "
                             "Use the conversation mode to build your PRD interactively, or paste your own markdown."
                         }
@@ -222,7 +271,7 @@ pub fn RalphNewSession() -> Element {
                                 "Paste Markdown"
                             }
                         }
-                        
+
                         match prd_mode() {
                             PrdMode::Conversation => rsx! {
                                 PrdConversation {

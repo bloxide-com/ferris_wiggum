@@ -7,7 +7,7 @@ pub struct StreamParser {
     token_usage: TokenUsage,
     warn_threshold: u32,
     rotate_threshold: u32,
-    
+
     // Gutter detection
     command_failures: HashMap<String, u32>,
     file_writes: HashMap<String, Vec<SystemTime>>,
@@ -63,27 +63,33 @@ impl StreamParser {
                 *count += 1;
 
                 if *count >= self.gutter_fail_count {
-                    signal = Some(Signal::Gutter(
-                        format!("Command failed {} times: {}", count, command)
-                    ));
+                    signal = Some(Signal::Gutter(format!(
+                        "Command failed {} times: {}",
+                        count, command
+                    )));
                 }
             }
             ActivityKind::Write { path, .. } => {
                 // Track file thrashing
-                let writes = self.file_writes.entry(path.clone()).or_insert_with(Vec::new);
+                let writes = self
+                    .file_writes
+                    .entry(path.clone())
+                    .or_insert_with(Vec::new);
                 writes.push(SystemTime::now());
 
                 // Keep only writes from last 10 minutes
                 let ten_mins_ago = SystemTime::now()
                     .checked_sub(std::time::Duration::from_secs(600))
                     .unwrap_or(SystemTime::UNIX_EPOCH);
-                
+
                 writes.retain(|&t| t > ten_mins_ago);
 
                 if writes.len() >= self.gutter_thrash_count as usize {
-                    signal = Some(Signal::Gutter(
-                        format!("File thrashing detected: {} ({} writes in 10min)", path, writes.len())
-                    ));
+                    signal = Some(Signal::Gutter(format!(
+                        "File thrashing detected: {} ({} writes in 10min)",
+                        path,
+                        writes.len()
+                    )));
                 }
             }
             _ => {}
@@ -98,7 +104,9 @@ impl StreamParser {
             }
         }
 
-        let health = self.token_usage.health(self.warn_threshold, self.rotate_threshold);
+        let health = self
+            .token_usage
+            .health(self.warn_threshold, self.rotate_threshold);
 
         let entry = ActivityEntry {
             timestamp: SystemTime::now(),

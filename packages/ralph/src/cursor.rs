@@ -23,7 +23,7 @@ impl CursorRunner {
     ) -> Result<(), RalphError> {
         tracing::info!("Starting cursor-agent iteration with model {}", self.model);
         tracing::debug!("Prompt length: {} chars", prompt.len());
-        
+
         // Spawn cursor-agent CLI
         tracing::debug!("Spawning cursor-agent in {}", self.project_path);
         let mut child = Command::new("cursor-agent")
@@ -43,11 +43,10 @@ impl CursorRunner {
                 RalphError::CursorAgent(format!("Failed to spawn cursor-agent: {}", e))
             })?;
 
-        let stdout = child.stdout.take()
-            .ok_or_else(|| {
-                tracing::error!("Failed to capture cursor-agent stdout");
-                RalphError::CursorAgent("Failed to capture stdout".into())
-            })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            tracing::error!("Failed to capture cursor-agent stdout");
+            RalphError::CursorAgent("Failed to capture stdout".into())
+        })?;
 
         let mut reader = BufReader::new(stdout).lines();
 
@@ -74,17 +73,17 @@ impl CursorRunner {
 
         // Wait for process to complete
         tracing::debug!("Waiting for cursor-agent to complete");
-        let status = child.wait().await
-            .map_err(|e| {
-                tracing::error!("Failed to wait for cursor-agent: {}", e);
-                RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
-            })?;
+        let status = child.wait().await.map_err(|e| {
+            tracing::error!("Failed to wait for cursor-agent: {}", e);
+            RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
+        })?;
 
         if !status.success() {
             tracing::error!("cursor-agent exited with status: {}", status);
-            return Err(RalphError::CursorAgent(
-                format!("cursor-agent exited with status: {}", status)
-            ));
+            return Err(RalphError::CursorAgent(format!(
+                "cursor-agent exited with status: {}",
+                status
+            )));
         }
 
         tracing::info!("cursor-agent iteration completed successfully");
@@ -151,7 +150,7 @@ mod tests {
             "/tmp/test-project".to_string(),
             "opus-4.5-thinking".to_string(),
         );
-        
+
         assert_eq!(runner.project_path, "/tmp/test-project");
         assert_eq!(runner.model, "opus-4.5-thinking");
     }

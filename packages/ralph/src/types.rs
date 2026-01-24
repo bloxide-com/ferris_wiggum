@@ -84,7 +84,7 @@ impl TokenUsage {
     pub fn health(&self, warn_threshold: u32, rotate_threshold: u32) -> ContextHealth {
         let percent = self.percentage(rotate_threshold);
         let warn_percent = warn_threshold as f32 / rotate_threshold as f32 * 100.0;
-        
+
         match percent as u32 {
             p if p < warn_percent as u32 => ContextHealth::Healthy,
             p if p < 100 => ContextHealth::Warning,
@@ -112,9 +112,20 @@ pub struct ActivityEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ActivityKind {
-    Read { path: String, lines: u32, bytes: u32 },
-    Write { path: String, lines: u32, bytes: u32 },
-    Shell { command: String, exit_code: i32 },
+    Read {
+        path: String,
+        lines: u32,
+        bytes: u32,
+    },
+    Write {
+        path: String,
+        lines: u32,
+        bytes: u32,
+    },
+    Shell {
+        command: String,
+        exit_code: i32,
+    },
     TokenUpdate(TokenUsage),
     Signal(Signal),
     Error(String),
@@ -237,19 +248,19 @@ impl PrdConversation {
 pub enum RalphError {
     #[error("IO error: {0}")]
     Io(String),
-    
+
     #[error("Git error: {0}")]
     Git(String),
-    
+
     #[error("Cursor agent error: {0}")]
     CursorAgent(String),
-    
+
     #[error("Parse error: {0}")]
     Parse(String),
-    
+
     #[error("Session not found: {0}")]
     SessionNotFound(String),
-    
+
     #[error("Invalid session state: {0}")]
     InvalidState(String),
 }

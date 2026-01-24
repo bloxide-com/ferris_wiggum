@@ -43,18 +43,18 @@ fn GuardrailCard(guardrail: Guardrail) -> Element {
     rsx! {
         div { class: "guardrail-card",
             h4 { "🚧 {guardrail.title}" }
-            
+
             div { class: "guardrail-content",
                 div { class: "guardrail-item",
                     strong { "Trigger: " }
                     span { "{guardrail.trigger}" }
                 }
-                
+
                 div { class: "guardrail-item",
                     strong { "Do: " }
                     span { "{guardrail.instruction}" }
                 }
-                
+
                 div { class: "guardrail-context",
                     em { "Added after: {guardrail.added_after}" }
                 }

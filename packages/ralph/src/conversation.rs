@@ -80,19 +80,22 @@ impl PrdConversationManager {
     }
 
     /// Start a new PRD conversation for a session
-    pub async fn start_conversation(&self, session_id: String) -> Result<PrdConversation, RalphError> {
+    pub async fn start_conversation(
+        &self,
+        session_id: String,
+    ) -> Result<PrdConversation, RalphError> {
         let mut conversations = self.conversations.write().await;
-        
+
         // Create new conversation with system prompt
         let mut conversation = PrdConversation::new(session_id.clone());
         conversation.add_message(ConversationMessage::system(SYSTEM_PROMPT));
-        
+
         // Generate initial assistant message
         let initial_message = self.generate_response(&conversation).await?;
         conversation.add_message(ConversationMessage::assistant(&initial_message));
-        
+
         conversations.insert(session_id, conversation.clone());
-        
+
         Ok(conversation)
     }
 
@@ -109,35 +112,41 @@ impl PrdConversationManager {
         message: String,
     ) -> Result<PrdConversation, RalphError> {
         let mut conversations = self.conversations.write().await;
-        
+
         let conversation = conversations
             .get_mut(session_id)
             .ok_or_else(|| RalphError::SessionNotFound(session_id.to_string()))?;
-        
+
         // Add user message
         conversation.add_message(ConversationMessage::user(&message));
-        
+
         // Generate assistant response
         let response = self.generate_response(conversation).await?;
-        
+
         // Check if the response contains a PRD
         if let Some(prd_markdown) = self.extract_prd(&response) {
             conversation.set_generated_prd(prd_markdown);
         }
-        
+
         conversation.add_message(ConversationMessage::assistant(&response));
-        
+
         Ok(conversation.clone())
     }
 
     /// Generate a response using the cursor-agent CLI
-    async fn generate_response(&self, conversation: &PrdConversation) -> Result<String, RalphError> {
+    async fn generate_response(
+        &self,
+        conversation: &PrdConversation,
+    ) -> Result<String, RalphError> {
         // Build the prompt from conversation history
         let prompt = self.build_prompt(conversation);
-        
-        tracing::info!("Generating PRD conversation response with model {}", self.model);
+
+        tracing::info!(
+            "Generating PRD conversation response with model {}",
+            self.model
+        );
         tracing::debug!("Prompt length: {} chars", prompt.len());
-        
+
         // Use cursor-agent in conversation mode
         let mut child = Command::new("cursor-agent")
             .arg("--model")
@@ -153,36 +162,38 @@ impl PrdConversationManager {
                 RalphError::CursorAgent(format!("Failed to spawn cursor-agent: {}", e))
             })?;
 
-        let stdout = child.stdout.take()
-            .ok_or_else(|| {
-                tracing::error!("Failed to capture cursor-agent stdout");
-                RalphError::CursorAgent("Failed to capture stdout".into())
-            })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            tracing::error!("Failed to capture cursor-agent stdout");
+            RalphError::CursorAgent("Failed to capture stdout".into())
+        })?;
 
         let mut reader = BufReader::new(stdout);
         let mut response = String::new();
-        
+
         // Read the entire response
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map_err(|e| {
-            RalphError::CursorAgent(format!("Failed to read response: {}", e))
-        })? > 0 {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| RalphError::CursorAgent(format!("Failed to read response: {}", e)))?
+            > 0
+        {
             response.push_str(&line);
             line.clear();
         }
 
         // Wait for process to complete
-        let status = child.wait().await
-            .map_err(|e| {
-                tracing::error!("Failed to wait for cursor-agent: {}", e);
-                RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
-            })?;
+        let status = child.wait().await.map_err(|e| {
+            tracing::error!("Failed to wait for cursor-agent: {}", e);
+            RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
+        })?;
 
         if !status.success() {
             tracing::error!("cursor-agent exited with status: {}", status);
-            return Err(RalphError::CursorAgent(
-                format!("cursor-agent exited with status: {}", status)
-            ));
+            return Err(RalphError::CursorAgent(format!(
+                "cursor-agent exited with status: {}",
+                status
+            )));
         }
 
         Ok(response.trim().to_string())
@@ -191,7 +202,7 @@ impl PrdConversationManager {
     /// Build a prompt from conversation history
     fn build_prompt(&self, conversation: &PrdConversation) -> String {
         let mut prompt = String::new();
-        
+
         for message in &conversation.messages {
             match message.role {
                 MessageRole::System => {
@@ -205,7 +216,7 @@ impl PrdConversationManager {
                 }
             }
         }
-        
+
         prompt.push_str("[Assistant]\n");
         prompt
     }
@@ -217,14 +228,14 @@ impl PrdConversationManager {
         if !response.contains("## User Stories") && !response.contains("## Stories") {
             return None;
         }
-        
+
         // Try to find the PRD markdown block
         // First, check if the entire response is a PRD (starts with #)
         let trimmed = response.trim();
         if trimmed.starts_with("# ") && trimmed.contains("## ") {
             return Some(trimmed.to_string());
         }
-        
+
         // Look for a markdown code block containing the PRD
         if let Some(start) = response.find("```markdown") {
             let content_start = start + "```markdown".len();
@@ -235,7 +246,7 @@ impl PrdConversationManager {
                 }
             }
         }
-        
+
         // Look for PRD that starts after some text
         if let Some(start) = response.find("\n# ") {
             let prd = response[start + 1..].trim();
@@ -243,7 +254,7 @@ impl PrdConversationManager {
                 return Some(prd.to_string());
             }
         }
-        
+
         None
     }
 
@@ -261,7 +272,7 @@ mod tests {
     #[test]
     fn test_extract_prd_from_markdown_block() {
         let manager = PrdConversationManager::new("test-model".to_string());
-        
+
         let response = r#"Here's the PRD based on our discussion:
 
 ```markdown
@@ -286,7 +297,7 @@ Users need this feature.
 ```
 
 Let me know if you'd like any changes!"#;
-        
+
         let prd = manager.extract_prd(response);
         assert!(prd.is_some());
         let prd = prd.unwrap();
@@ -297,7 +308,7 @@ Let me know if you'd like any changes!"#;
     #[test]
     fn test_extract_prd_direct() {
         let manager = PrdConversationManager::new("test-model".to_string());
-        
+
         let response = r#"# My Feature
 
 ## Problem Statement
@@ -307,7 +318,7 @@ Users need this feature.
 
 ### US-001: First Story
 **Priority:** 1"#;
-        
+
         let prd = manager.extract_prd(response);
         assert!(prd.is_some());
     }
@@ -315,9 +326,9 @@ Users need this feature.
     #[test]
     fn test_no_prd_in_response() {
         let manager = PrdConversationManager::new("test-model".to_string());
-        
+
         let response = "What problem are you trying to solve with this feature?";
-        
+
         let prd = manager.extract_prd(response);
         assert!(prd.is_none());
     }

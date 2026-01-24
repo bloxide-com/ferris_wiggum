@@ -1,19 +1,16 @@
 {
-  "project": "Project Repository File Picker",
-  "branch_name": "ralph/file-picker-3",
-  "description": "Users currently have no way to browse and select project repositories through the UI. This creates friction in the workflow when creating sessions or configuring projects, requiring users to manually type paths or work outside the application to determine the correct repository location.",
+  "project": "Web “New Session” Reliability + Dark Theme CSS Overhaul",
+  "branch_name": "ralph/web-“new-session”-reliability-+-dark-theme-css-overhaul",
+  "description": "In the web app’s “New Session” flow, selecting a folder and clicking **Select** can trigger a server error (`Project path does not exist`) even when the folder is valid. Separately, the UI has severe contrast issues (e.g. chat/PRD text appearing white-on-white), and the overall styling needs a cohesive dark-theme polish.",
   "stories": [
     {
       "id": "US-001",
-      "title": "Browse File System",
-      "description": "As a** Ralph user I want** to browse my local file system in an intuitive interface So that** I can easily navigate to my project repository without memorizing the full path",
+      "title": "File picker selection vs navigation",
+      "description": "As a** web user I want** single click to select a folder and double click to enter it So that** I can quickly choose a repo root without losing browsing ability",
       "acceptance_criteria": [
-        "File picker displays current directory path",
-        "User can navigate up to parent directories",
-        "User can click into subdirectories",
-        "Directories are visually distinguished from files",
-        "File picker shows a tree or list view of directories",
-        "UI is responsive and works across desktop, web, and mobile platforms",
+        "Single click updates the “Project path” input with the clicked folder’s absolute server path",
+        "Double click navigates into the folder and updates the folder listing",
+        "Verify in browser",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -22,15 +19,13 @@
     },
     {
       "id": "US-002",
-      "title": "Select Repository Directory",
-      "description": "As a** Ralph user I want** to select a specific directory as my project repository So that** I can proceed with session creation or configuration",
+      "title": "Server-side path validation (exists/dir/git) with debounce",
+      "description": "As a** web user I want** the app to validate the typed/selected path against the server every 500ms after I stop typing So that** I can’t proceed with an invalid repo path",
       "acceptance_criteria": [
-        "User can click a directory to select it",
-        "Selected directory is visually highlighted",
-        "\"Select\" or \"Choose\" button confirms the selection",
-        "Selected path is returned to the parent component",
-        "User cannot select files (only directories)",
-        "Selection is validated before confirmation",
+        "Validation runs 500ms after last keystroke; further typing resets the timer",
+        "Validation checks: exists, is directory, and git command confirms repo",
+        "Validation result updates UI state without page refresh",
+        "Verify in browser",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -39,81 +34,60 @@
     },
     {
       "id": "US-003",
-      "title": "Search and Filter Directories",
-      "description": "As a** Ralph user I want** to search or filter directories by name So that** I can quickly find my repository in large directory structures",
+      "title": "Disable “Select” until path is valid",
+      "description": "As a** web user I want** the Select button disabled unless the current path is a valid git repo directory So that** I don’t trigger server errors from invalid input",
       "acceptance_criteria": [
-        "Search input field is visible in file picker",
-        "Directories are filtered as user types",
-        "Search is case-insensitive",
-        "Search highlights or filters matching directories",
-        "Clear button resets search filter",
-        "Search works without delay or performance issues",
+        "Select is disabled when path is empty/invalid",
+        "Select becomes enabled only when server validation is successful",
+        "If a previously valid path becomes invalid, Select becomes disabled again",
+        "Verify in browser",
         "Typecheck passes"
       ],
-      "priority": 2,
+      "priority": 1,
       "passes": true,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Quick Access to Common Locations",
-      "description": "As a** Ralph user I want** quick access to common directories (Home, Documents, Projects) So that** I can navigate to frequently used locations faster",
+      "title": "Lock in selected path on “Select”",
+      "description": "As a** web user I want** clicking Select to lock in the validated repo path So that** “Create session” depends on an explicit confirmed selection, not transient text",
       "acceptance_criteria": [
-        "Sidebar or shortcut list shows common locations",
-        "Clicking a shortcut navigates to that directory",
-        "Common locations include: Home, Documents, Desktop, common project folders",
-        "Shortcuts are platform-appropriate (Linux, macOS, Windows)",
-        "Recent or favorited directories appear if applicable",
+        "Clicking Select stores a “locked” project path value used for session creation",
+        "Changing the text afterward does not change the locked value unless Select is clicked again",
+        "Verify in browser",
         "Typecheck passes"
       ],
-      "priority": 2,
+      "priority": 1,
       "passes": true,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Handle Permission Errors Gracefully",
-      "description": "As a** Ralph user I want** clear feedback when I try to access restricted directories So that** I understand why I cannot navigate to certain paths",
+      "title": "Explicit “Create session” button gated by required options",
+      "description": "As a** web user I want** a Create session button that is disabled until required options are set (including locked repo path) So that** session creation is intentional and predictable",
       "acceptance_criteria": [
-        "Permission denied errors are caught",
-        "User sees a clear error message",
-        "File picker remains functional after error",
-        "User can navigate to alternate directories",
-        "Protected directories show a lock icon or indicator",
+        "Create session exists as a distinct action from Select",
+        "Create session is disabled until required fields are set and project path is locked",
+        "Clicking Create session successfully creates a session for a valid locked repo path",
+        "Verify in browser",
         "Typecheck passes"
       ],
-      "priority": 2,
+      "priority": 1,
       "passes": true,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Remember Last Selected Path",
-      "description": "As a** Ralph user I want** the file picker to remember my last selected or browsed directory So that** I can quickly return to my working directories",
+      "title": "Web-wide CSS overhaul to cohesive dark theme + fix contrast bugs",
+      "description": "As a** web user I want** the entire web app restyled into a readable dark theme So that** all text (especially chat/PRD text) is visible and the app looks polished",
       "acceptance_criteria": [
-        "File picker opens to last used directory by default",
-        "Last path is persisted between sessions",
-        "User can override and start from home if needed",
-        "Path memory is specific to the user/context",
+        "Chat/PRD text is clearly readable (no white-on-white or similar contrast failures)",
+        "Core pages (dashboard/session/new session) have consistent dark styling (backgrounds, surfaces, text, inputs, buttons)",
+        "Verify in browser",
         "Typecheck passes"
       ],
-      "priority": 3,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-007",
-      "title": "Visual Git Repository Indicator",
-      "description": "As a** Ralph user I want** to see visual indicators for directories that contain Git repositories So that** I can quickly identify valid project repositories",
-      "acceptance_criteria": [
-        "Directories with `.git` folder show a Git icon or indicator",
-        "Indicator is visible in the directory list",
-        "Non-Git directories do not show the indicator",
-        "User can filter to show only Git repositories",
-        "Typecheck passes"
-      ],
-      "priority": 3,
-      "passes": true,
+      "priority": 2,
+      "passes": false,
       "notes": ""
     }
   ]

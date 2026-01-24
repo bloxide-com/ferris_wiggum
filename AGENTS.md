@@ -263,3 +263,14 @@ The initial UI rendered by the component on the client must be identical to the 
 
 * Use the `use_server_future` hook instead of `use_resource`. It runs the future on the server, serializes the result, and sends it to the client, ensuring the client has the data immediately for its first render.
 * Any code that relies on browser-specific APIs (like accessing `localStorage`) must be run *after* hydration. Place this code inside a `use_effect` hook.
+
+# Project patterns (ferris_wiggum)
+
+## “New Session” reliability
+
+- Treat the file picker’s text/path as **transient** and only create sessions from an explicit **locked** path (set by clicking “Select”).
+- Prefer an explicit `onclick` “Create session” action over `form onsubmit` to avoid accidental session creation via Enter key.
+
+## Web package feature checks
+
+- The `packages/web` crate uses feature flags: run `cargo check -p web --features web` and `cargo check -p web --features server` to validate both sides compile.

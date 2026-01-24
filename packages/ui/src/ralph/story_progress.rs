@@ -34,7 +34,11 @@ pub fn StoryProgress(stories: Vec<Story>) -> Element {
 #[component]
 fn StoryCard(story: Story) -> Element {
     let status_icon = if story.passes { "✅" } else { "⏳" };
-    let status_class = if story.passes { "story-complete" } else { "story-pending" };
+    let status_class = if story.passes {
+        "story-complete"
+    } else {
+        "story-pending"
+    };
 
     rsx! {
         div { class: "story-card {status_class}",

@@ -8,9 +8,10 @@ dioxus = { workspace = true, features = ["router", "fullstack"] }
 ui = { workspace = true, features = ["web"] }
 api = { workspace = true }
 ralph = { workspace = true }
+gloo-timers = { version = "0.3", features = ["futures"], optional = true }
 web-sys = { version = "0.3", features = ["Window", "Storage", "StorageEvent"] }
 
 [features]
 default = []
-web = ["dioxus/web"]
+web = ["dioxus/web", "dep:gloo-timers"]
 server = ["dioxus/server", "ui/server"]

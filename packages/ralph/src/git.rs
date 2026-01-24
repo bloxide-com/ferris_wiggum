@@ -26,11 +26,14 @@ impl GitOperations {
 
     pub async fn create_branch(&self, branch_name: &str) -> Result<(), RalphError> {
         // Check if branch exists
-        let output = self.run_git_command(&["branch", "--list", branch_name]).await?;
-        
+        let output = self
+            .run_git_command(&["branch", "--list", branch_name])
+            .await?;
+
         if output.trim().is_empty() {
             // Branch doesn't exist, create it
-            self.run_git_command(&["checkout", "-b", branch_name]).await?;
+            self.run_git_command(&["checkout", "-b", branch_name])
+                .await?;
         } else {
             // Branch exists, checkout
             self.run_git_command(&["checkout", branch_name]).await?;
@@ -50,18 +53,16 @@ impl GitOperations {
         Ok(())
     }
 
-    pub async fn create_pr(&self, branch: &str, title: &str, body: &str) -> Result<String, RalphError> {
+    pub async fn create_pr(
+        &self,
+        branch: &str,
+        title: &str,
+        body: &str,
+    ) -> Result<String, RalphError> {
         // Use gh CLI to create PR
         let output = Command::new("gh")
             .args(&[
-                "pr",
-                "create",
-                "--head",
-                branch,
-                "--title",
-                title,
-                "--body",
-                body,
+                "pr", "create", "--head", branch, "--title", title, "--body", body,
             ])
             .current_dir(&self.project_path)
             .output()
@@ -102,7 +103,10 @@ impl GitOperations {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(RalphError::Git(format!("git {} failed: {}", args[0], stderr)));
+            return Err(RalphError::Git(format!(
+                "git {} failed: {}",
+                args[0], stderr
+            )));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())

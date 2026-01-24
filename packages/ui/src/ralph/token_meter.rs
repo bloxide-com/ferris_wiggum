@@ -2,14 +2,10 @@ use dioxus::prelude::*;
 use ralph::TokenUsage;
 
 #[component]
-pub fn TokenMeter(
-    usage: TokenUsage,
-    warn_threshold: u32,
-    rotate_threshold: u32,
-) -> Element {
+pub fn TokenMeter(usage: TokenUsage, warn_threshold: u32, rotate_threshold: u32) -> Element {
     let percentage = (usage.total as f32 / rotate_threshold as f32 * 100.0).min(100.0);
     let warn_percentage = warn_threshold as f32 / rotate_threshold as f32 * 100.0;
-    
+
     let health_class = if percentage < warn_percentage {
         "healthy"
     } else if percentage < 100.0 {
@@ -29,7 +25,7 @@ pub fn TokenMeter(
     rsx! {
         div { class: "ralph-token-meter {health_class}",
             h3 { "{icon} Context Usage" }
-            
+
             div { class: "meter-bar",
                 div {
                     class: "meter-fill {health_class}",

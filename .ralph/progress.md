@@ -154,3 +154,39 @@
 - Git indicators should be visually distinct (green color) and positioned consistently (right side before protected indicator)
 - Filter toggles should be placed near search inputs for logical grouping of filtering controls
 ---
+
+## 2026-01-24 09:24:09 EST - US-005
+- Added an explicit “Create session” button (separate from “Select”) and gated it on a locked repo path matching the currently displayed path, preventing accidental/implicit session creation.
+- Files changed:
+  - `AGENTS.md`
+  - `Cargo.lock`
+  - `packages/api/src/ralph.rs`
+  - `packages/ralph/src/conversation.rs`
+  - `packages/ralph/src/cursor.rs`
+  - `packages/ralph/src/git.rs`
+  - `packages/ralph/src/guardrails.rs`
+  - `packages/ralph/src/lib.rs`
+  - `packages/ralph/src/parser.rs`
+  - `packages/ralph/src/session.rs`
+  - `packages/ralph/src/signals.rs`
+  - `packages/ralph/src/types.rs`
+  - `packages/ui/src/ralph/activity_log.rs`
+  - `packages/ui/src/ralph/file_picker.rs`
+  - `packages/ui/src/ralph/guardrails_panel.rs`
+  - `packages/ui/src/ralph/mod.rs`
+  - `packages/ui/src/ralph/prd_conversation.rs`
+  - `packages/ui/src/ralph/session_dashboard.rs`
+  - `packages/ui/src/ralph/session_list.rs`
+  - `packages/ui/src/ralph/story_progress.rs`
+  - `packages/ui/src/ralph/token_meter.rs`
+  - `packages/web/Cargo.toml`
+  - `packages/web/src/main.rs`
+  - `packages/web/src/views/mod.rs`
+  - `packages/web/src/views/ralph/mod.rs`
+  - `packages/web/src/views/ralph/new_session.rs`
+  - `prd.json`
+- **Learnings for future iterations:**
+  - Treat the file picker’s path as transient and only proceed from an explicitly “locked” path; also gate “Create session” if the visible path has changed since locking.
+  - There is no `.ralph/guardrails.md` in this repo currently; guardrails knowledge is likely captured in code (`packages/ralph/src/guardrails.rs`) and in this progress log instead.
+  - No browser automation/e2e harness (Playwright/Cypress/etc.) appears configured in the repo right now; “Verify in browser” is currently a manual step.
+---

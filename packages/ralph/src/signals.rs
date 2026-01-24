@@ -17,14 +17,13 @@ impl SignalHandler {
                 "⚠️  WARN: Approaching token limit. Wrap up current work and commit.".to_string()
             }
             Signal::Rotate => {
-                "🔄 ROTATE: Token limit reached. Committing and starting fresh iteration.".to_string()
+                "🔄 ROTATE: Token limit reached. Committing and starting fresh iteration."
+                    .to_string()
             }
             Signal::Gutter(reason) => {
                 format!("🚨 GUTTER: Stuck state detected. {}", reason)
             }
-            Signal::Complete => {
-                "✅ COMPLETE: All stories have passed!".to_string()
-            }
+            Signal::Complete => "✅ COMPLETE: All stories have passed!".to_string(),
             Signal::StoryComplete(id) => {
                 format!("✓ Story {} completed", id)
             }
@@ -55,7 +54,7 @@ mod tests {
         assert!(SignalHandler::format_signal(&Signal::Warn).contains("WARN"));
         assert!(SignalHandler::format_signal(&Signal::Rotate).contains("ROTATE"));
         assert!(SignalHandler::format_signal(&Signal::Complete).contains("COMPLETE"));
-        
+
         let gutter = Signal::Gutter("test reason".to_string());
         assert!(SignalHandler::format_signal(&gutter).contains("GUTTER"));
         assert!(SignalHandler::format_signal(&gutter).contains("test reason"));

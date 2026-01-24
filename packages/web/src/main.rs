@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use ui::Navbar;
-use views::{RalphDashboard, RalphSession, RalphNewSession};
+use views::{RalphDashboard, RalphNewSession, RalphSession};
 
 mod views;
 

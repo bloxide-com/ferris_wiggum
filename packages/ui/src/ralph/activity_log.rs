@@ -4,7 +4,7 @@ use ralph::{ActivityEntry, ActivityKind, ContextHealth, Signal};
 #[component]
 pub fn ActivityLog(session_id: ReadSignal<String>) -> Element {
     let entries = use_signal(|| Vec::<ActivityEntry>::new());
-    
+
     // TODO: Implement SSE streaming when Dioxus supports it better
     // For now, we'll poll periodically
     use_effect(move || {
@@ -35,31 +35,27 @@ pub fn ActivityLog(session_id: ReadSignal<String>) -> Element {
 #[component]
 fn ActivityRow(entry: ActivityEntry) -> Element {
     let (icon, description) = match &entry.kind {
-        ActivityKind::Read { path, lines, bytes } => {
-            ("👁️", format!("READ {} ({} lines, {} bytes)", path, lines, bytes))
-        }
-        ActivityKind::Write { path, lines, bytes } => {
-            ("✏️", format!("WRITE {} ({} lines, {} bytes)", path, lines, bytes))
-        }
+        ActivityKind::Read { path, lines, bytes } => (
+            "👁️",
+            format!("READ {} ({} lines, {} bytes)", path, lines, bytes),
+        ),
+        ActivityKind::Write { path, lines, bytes } => (
+            "✏️",
+            format!("WRITE {} ({} lines, {} bytes)", path, lines, bytes),
+        ),
         ActivityKind::Shell { command, exit_code } => {
             let icon = if *exit_code == 0 { "✅" } else { "❌" };
             (icon, format!("SHELL {} → exit {}", command, exit_code))
         }
-        ActivityKind::TokenUpdate(usage) => {
-            ("📊", format!("TOKENS: {} total", usage.total))
-        }
-        ActivityKind::Signal(signal) => {
-            match signal {
-                Signal::Warn => ("⚠️", "WARN: Approaching token limit".to_string()),
-                Signal::Rotate => ("🔄", "ROTATE: Starting fresh iteration".to_string()),
-                Signal::Gutter(reason) => ("🚨", format!("GUTTER: {}", reason)),
-                Signal::Complete => ("🎉", "COMPLETE: All stories pass!".to_string()),
-                Signal::StoryComplete(id) => ("✓", format!("Story {} completed", id)),
-            }
-        }
-        ActivityKind::Error(msg) => {
-            ("❌", format!("ERROR: {}", msg))
-        }
+        ActivityKind::TokenUpdate(usage) => ("📊", format!("TOKENS: {} total", usage.total)),
+        ActivityKind::Signal(signal) => match signal {
+            Signal::Warn => ("⚠️", "WARN: Approaching token limit".to_string()),
+            Signal::Rotate => ("🔄", "ROTATE: Starting fresh iteration".to_string()),
+            Signal::Gutter(reason) => ("🚨", format!("GUTTER: {}", reason)),
+            Signal::Complete => ("🎉", "COMPLETE: All stories pass!".to_string()),
+            Signal::StoryComplete(id) => ("✓", format!("Story {} completed", id)),
+        },
+        ActivityKind::Error(msg) => ("❌", format!("ERROR: {}", msg)),
     };
 
     let health_icon = match entry.health {
