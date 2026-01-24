@@ -253,7 +253,7 @@ fn parse_markdown_prd(markdown: &str, project_path: &str, branch_name: Option<&s
 pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversation, ServerFnError> {
     tracing::info!("Starting PRD conversation for session: {}", session_id);
     
-    // Get session to retrieve model from config
+    // Get session to retrieve model from config and root_path
     let session = SESSION_MANAGER
         .get_session(&session_id)
         .await
@@ -263,10 +263,12 @@ pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversatio
         })?;
     
     let model = session.config.prd_model.clone();
+    let root_path = session.project_path.clone();
     tracing::debug!("Using PRD model '{}' from session config", model);
+    tracing::debug!("Using root_path '{}' for PRD generation", root_path);
     
     CONVERSATION_MANAGER
-        .start_conversation(session_id.clone(), model)
+        .start_conversation(session_id.clone(), model, root_path)
         .await
         .map_err(|e| {
             tracing::error!("Failed to start PRD conversation for {}: {}", session_id, e);
@@ -285,7 +287,7 @@ pub async fn send_prd_message(
     tracing::info!("Sending message to PRD conversation for session: {}", session_id);
     tracing::debug!("Message length: {} chars", message.len());
     
-    // Get session to retrieve model from config
+    // Get session to retrieve model from config and root_path
     let session = SESSION_MANAGER
         .get_session(&session_id)
         .await
@@ -295,10 +297,12 @@ pub async fn send_prd_message(
         })?;
     
     let model = session.config.prd_model.clone();
+    let root_path = session.project_path.clone();
     tracing::debug!("Using PRD model '{}' from session config", model);
+    tracing::debug!("Using root_path '{}' for PRD generation", root_path);
     
     CONVERSATION_MANAGER
-        .send_message(&session_id, message, model)
+        .send_message(&session_id, message, model, root_path)
         .await
         .map_err(|e| {
             tracing::error!("Failed to send message for {}: {}", session_id, e);

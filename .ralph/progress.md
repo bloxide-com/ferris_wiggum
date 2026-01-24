@@ -237,3 +237,22 @@
 - The form submission already uses `SessionConfig` with separate fields, so no backend changes were needed
 - Default values for both models are set to "opus-4.5-thinking" to match the backend defaults
 ---
+
+## 2026-01-24 - US-005
+- Passed root_path (from folder picker, stored as session.project_path) to PRD generation endpoints
+- Updated `PrdConversationManager.start_conversation` and `send_message` methods to accept `root_path` parameter
+- Updated `generate_response` to use `root_path` with `Command::current_dir()` so cursor-agent runs in the project directory
+- Updated API functions `start_prd_conversation` and `send_prd_message` to extract `session.project_path` and pass it as `root_path`
+- Added unit test `test_root_path_is_accessible_during_prd_generation` to verify root_path parameter is accessible
+- Files changed:
+  - `packages/ralph/src/conversation.rs` - Added root_path parameter to methods, updated generate_response to use current_dir()
+  - `packages/api/src/ralph.rs` - Updated API functions to pass session.project_path as root_path
+  - `prd.json` - Updated US-005 to passes: true
+
+**Learnings for future iterations:**
+- Use `Command::current_dir()` to set the working directory when spawning processes - this allows the process to access files relative to that directory
+- The `session.project_path` field (set from folder picker) is the root_path that should be used for PRD generation
+- When adding parameters to manager methods, update all call sites including API functions and tests
+- cursor-agent analyzes the codebase in its current working directory, so setting current_dir() allows it to understand the project structure when generating PRDs
+- The root_path flows from Session.project_path -> API functions -> PrdConversationManager methods -> generate_response -> Command::current_dir()
+---
