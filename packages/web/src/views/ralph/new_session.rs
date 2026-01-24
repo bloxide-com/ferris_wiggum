@@ -24,8 +24,10 @@ pub fn RalphNewSession() -> Element {
             creating.set(true);
             error.set(None);
 
+            let model_value = model();
             let config = SessionConfig {
-                model: model(),
+                prd_model: model_value.clone(),
+                execution_model: model_value,
                 max_iterations: max_iterations(),
                 warn_threshold: warn_threshold(),
                 rotate_threshold: rotate_threshold(),

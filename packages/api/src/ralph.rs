@@ -262,8 +262,8 @@ pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversatio
             ServerFnError::new(e.to_string())
         })?;
     
-    let model = session.config.model.clone();
-    tracing::debug!("Using model '{}' from session config", model);
+    let model = session.config.prd_model.clone();
+    tracing::debug!("Using PRD model '{}' from session config", model);
     
     CONVERSATION_MANAGER
         .start_conversation(session_id.clone(), model)
@@ -294,8 +294,8 @@ pub async fn send_prd_message(
             ServerFnError::new(e.to_string())
         })?;
     
-    let model = session.config.model.clone();
-    tracing::debug!("Using model '{}' from session config", model);
+    let model = session.config.prd_model.clone();
+    tracing::debug!("Using PRD model '{}' from session config", model);
     
     CONVERSATION_MANAGER
         .send_message(&session_id, message, model)

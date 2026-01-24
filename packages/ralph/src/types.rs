@@ -27,7 +27,8 @@ pub enum SessionStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SessionConfig {
-    pub model: String,
+    pub prd_model: String,
+    pub execution_model: String,
     pub max_iterations: u32,
     pub warn_threshold: u32,
     pub rotate_threshold: u32,
@@ -38,7 +39,8 @@ pub struct SessionConfig {
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
-            model: "opus-4.5-thinking".into(),
+            prd_model: "opus-4.5-thinking".into(),
+            execution_model: "opus-4.5-thinking".into(),
             max_iterations: 20,
             warn_threshold: 70_000,
             rotate_threshold: 80_000,
@@ -257,5 +259,34 @@ pub enum RalphError {
 impl From<std::io::Error> for RalphError {
     fn from(e: std::io::Error) -> Self {
         RalphError::Io(e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_config_has_separate_models() {
+        let config = SessionConfig {
+            prd_model: "sonnet-4.5-thinking".to_string(),
+            execution_model: "opus-4.5-thinking".to_string(),
+            max_iterations: 20,
+            warn_threshold: 70_000,
+            rotate_threshold: 80_000,
+            branch_name: None,
+            open_pr: false,
+        };
+
+        assert_eq!(config.prd_model, "sonnet-4.5-thinking");
+        assert_eq!(config.execution_model, "opus-4.5-thinking");
+        assert_ne!(config.prd_model, config.execution_model);
+    }
+
+    #[test]
+    fn test_session_config_default() {
+        let config = SessionConfig::default();
+        assert_eq!(config.prd_model, "opus-4.5-thinking");
+        assert_eq!(config.execution_model, "opus-4.5-thinking");
     }
 }
