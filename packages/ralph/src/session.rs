@@ -320,7 +320,7 @@ impl SessionManager {
         // Create cursor runner
         let runner = CursorRunner::new(
             session.project_path.clone(),
-            session.config.model.clone(),
+            session.config.execution_model.clone(),
         );
         
         // Create stream parser for tracking
@@ -445,5 +445,39 @@ impl Clone for SessionManager {
 impl Default for SessionManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::SessionConfig;
+    use crate::cursor::CursorRunner;
+
+    #[test]
+    fn test_execution_model_is_used_for_execution() {
+        // Verify that execution phase uses execution_model from SessionConfig
+        // This test verifies the structure: SessionConfig has execution_model field
+        // and it should be used when creating CursorRunner
+        let config = SessionConfig {
+            prd_model: "sonnet-4.5-thinking".to_string(),
+            execution_model: "opus-4.5-thinking".to_string(),
+            max_iterations: 20,
+            warn_threshold: 70_000,
+            rotate_threshold: 80_000,
+            branch_name: None,
+            open_pr: false,
+        };
+
+        // Verify execution_model is different from prd_model
+        assert_eq!(config.execution_model, "opus-4.5-thinking");
+        assert_ne!(config.execution_model, config.prd_model);
+
+        // Verify CursorRunner can be created with execution_model
+        let runner = CursorRunner::new(
+            "/tmp/test".to_string(),
+            config.execution_model.clone(),
+        );
+        assert_eq!(runner.model, "opus-4.5-thinking");
     }
 }

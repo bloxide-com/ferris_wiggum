@@ -154,3 +154,105 @@
 - Git indicators should be visually distinct (green color) and positioned consistently (right side before protected indicator)
 - Filter toggles should be placed near search inputs for logical grouping of filtering controls
 ---
+
+## 2026-01-24 - US-001
+- Fixed hardcoded model bug in PrdConversationManager
+- Removed `model` field from `PrdConversationManager` struct - model is now passed dynamically to methods
+- Updated `start_conversation` and `send_message` methods to accept `model` parameter
+- Updated `generate_response` to accept `model` parameter instead of using hardcoded value
+- Modified API functions `start_prd_conversation` and `send_prd_message` to extract model from `SessionConfig` and pass it to manager methods
+- Updated static `CONVERSATION_MANAGER` initialization to not require a model parameter
+- Added unit test to verify manager accepts model parameter dynamically
+- Files changed:
+  - `packages/ralph/src/conversation.rs` - Removed model field, updated methods to accept model parameter, updated tests
+  - `packages/api/src/ralph.rs` - Updated API functions to get model from session config and pass to manager methods
+  - `prd.json` - Updated US-001 to passes: true
+
+**Learnings for future iterations:**
+- When removing hardcoded values, pass them as parameters to methods rather than storing in struct fields to allow dynamic configuration
+- API server functions should extract configuration from session/context and pass to underlying managers rather than using global defaults
+- The `PrdConversationManager` maintains conversation state in a HashMap, so it should remain a singleton, but configuration (like model) should be passed per-operation
+- When updating method signatures, remember to update all call sites including tests
+- Type system ensures model flows correctly from SessionConfig -> API -> Manager -> cursor-agent command
+---
+
+## 2026-01-24 - US-002
+- Added "Auto" option to model dropdown in new session form
+- The "Auto" option appears first in the dropdown list with descriptive text "Auto (cursor-agent picks best model)"
+- Verified that selecting "auto" passes `--model auto` to cursor-agent (model string is passed directly via Command::arg())
+- Added unit test `test_auto_model_handling` to verify auto model option is accepted and passed through correctly
+- Files changed:
+  - `packages/web/src/views/ralph/new_session.rs` - Added "auto" option to model dropdown
+  - `packages/ralph/src/conversation.rs` - Added unit test for auto model handling
+  - `prd.json` - Updated US-002 to passes: true
+
+**Learnings for future iterations:**
+- Model dropdown options can be added simply by adding new `option` elements to the `select` component
+- The model value is passed as a string directly to cursor-agent via `Command::arg()`, so any string value (including "auto") will be passed through correctly without special handling
+- When adding new model options, place the most commonly used or recommended option first in the dropdown for better UX
+- Unit tests for model handling can verify that string values are accepted without needing to actually spawn cursor-agent processes
+---
+
+## 2026-01-24 - US-003
+- Split model settings into separate `prd_model` and `execution_model` fields in `SessionConfig`
+- Updated PRD generation functions (`start_prd_conversation`, `send_prd_message`) to use `prd_model` from session config
+- Updated execution phase (`run_iteration` in `SessionManager`) to use `execution_model` when creating `CursorRunner`
+- Updated UI to set both fields (currently both set to same value from single dropdown; UI split will come in US-004)
+- Updated session dashboard to display both PRD Model and Execution Model stats
+- Added unit tests to verify `SessionConfig` structure supports separate models
+- Files changed:
+  - `packages/ralph/src/types.rs` - Added `prd_model` and `execution_model` fields to `SessionConfig`, updated `Default` implementation
+  - `packages/api/src/ralph.rs` - Updated `start_prd_conversation` and `send_prd_message` to use `prd_model`
+  - `packages/ralph/src/session.rs` - Updated `run_iteration` to use `execution_model`, added unit test
+  - `packages/ralph/src/conversation.rs` - Added unit test for PRD model usage
+  - `packages/web/src/views/ralph/new_session.rs` - Updated to set both `prd_model` and `execution_model` fields
+  - `packages/ui/src/ralph/session_dashboard.rs` - Updated to display both model fields in stats
+  - `prd.json` - Updated US-003 to passes: true
+
+**Learnings for future iterations:**
+- When splitting a single field into multiple fields, update all access points: struct definition, Default impl, API functions, execution code, UI creation, and UI display
+- The UI currently sets both fields to the same value from a single dropdown - this maintains backward compatibility while preparing for the UI split in US-004
+- Session dashboard now shows both "PRD Model" and "Execution Model" stats to make the separation visible to users
+- Unit tests verify the structure supports separate models even if integration tests aren't running - the types.rs tests confirm the config structure is correct
+- Both models default to "opus-4.5-thinking" in the Default implementation for consistency
+---
+
+## 2026-01-24 - US-004
+- Split model dropdown into two separate dropdowns: "PRD Model" and "Execution Model"
+- Replaced single `model` signal with `prd_model` and `execution_model` signals
+- Both dropdowns include all model options including "Auto" option
+- Updated form submission to use both model values independently
+- Added form styles to ralph.css for proper layout (form-group, form-row, form-help, etc.)
+- Form now displays both dropdowns side-by-side in a form-row layout
+- Files changed:
+  - `packages/web/src/views/ralph/new_session.rs` - Split model dropdown into two separate dropdowns, updated signals and form submission
+  - `packages/web/assets/styling/ralph.css` - Added form styles for new session page (form-group, form-row, form-help, session-form, etc.)
+  - `prd.json` - Updated US-004 to passes: true
+
+**Learnings for future iterations:**
+- When splitting UI controls, replace the single signal with separate signals for each control
+- Use `form-row` class with CSS grid (`grid-template-columns: 1fr 1fr`) to display related form fields side-by-side
+- Both dropdowns should have identical option lists to maintain consistency
+- Form help text (`form-help` class) provides context for each field and improves UX
+- The form submission already uses `SessionConfig` with separate fields, so no backend changes were needed
+- Default values for both models are set to "opus-4.5-thinking" to match the backend defaults
+---
+
+## 2026-01-24 - US-005
+- Passed root_path (from folder picker, stored as session.project_path) to PRD generation endpoints
+- Updated `PrdConversationManager.start_conversation` and `send_message` methods to accept `root_path` parameter
+- Updated `generate_response` to use `root_path` with `Command::current_dir()` so cursor-agent runs in the project directory
+- Updated API functions `start_prd_conversation` and `send_prd_message` to extract `session.project_path` and pass it as `root_path`
+- Added unit test `test_root_path_is_accessible_during_prd_generation` to verify root_path parameter is accessible
+- Files changed:
+  - `packages/ralph/src/conversation.rs` - Added root_path parameter to methods, updated generate_response to use current_dir()
+  - `packages/api/src/ralph.rs` - Updated API functions to pass session.project_path as root_path
+  - `prd.json` - Updated US-005 to passes: true
+
+**Learnings for future iterations:**
+- Use `Command::current_dir()` to set the working directory when spawning processes - this allows the process to access files relative to that directory
+- The `session.project_path` field (set from folder picker) is the root_path that should be used for PRD generation
+- When adding parameters to manager methods, update all call sites including API functions and tests
+- cursor-agent analyzes the codebase in its current working directory, so setting current_dir() allows it to understand the project structure when generating PRDs
+- The root_path flows from Session.project_path -> API functions -> PrdConversationManager methods -> generate_response -> Command::current_dir()
+---
