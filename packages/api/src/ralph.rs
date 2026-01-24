@@ -10,7 +10,7 @@ use std::sync::Arc;
 #[cfg(feature = "server")]
 lazy_static::lazy_static! {
     static ref SESSION_MANAGER: Arc<SessionManager> = Arc::new(SessionManager::new());
-    static ref CONVERSATION_MANAGER: Arc<PrdConversationManager> = Arc::new(PrdConversationManager::new("opus-4.5-thinking".to_string()));
+    static ref CONVERSATION_MANAGER: Arc<PrdConversationManager> = Arc::new(PrdConversationManager::new());
 }
 
 // Session Management
@@ -253,8 +253,8 @@ fn parse_markdown_prd(markdown: &str, project_path: &str, branch_name: Option<&s
 pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversation, ServerFnError> {
     tracing::info!("Starting PRD conversation for session: {}", session_id);
     
-    // Verify session exists
-    SESSION_MANAGER
+    // Get session to retrieve model from config
+    let session = SESSION_MANAGER
         .get_session(&session_id)
         .await
         .map_err(|e| {
@@ -262,8 +262,11 @@ pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversatio
             ServerFnError::new(e.to_string())
         })?;
     
+    let model = session.config.model.clone();
+    tracing::debug!("Using model '{}' from session config", model);
+    
     CONVERSATION_MANAGER
-        .start_conversation(session_id.clone())
+        .start_conversation(session_id.clone(), model)
         .await
         .map_err(|e| {
             tracing::error!("Failed to start PRD conversation for {}: {}", session_id, e);
@@ -282,8 +285,20 @@ pub async fn send_prd_message(
     tracing::info!("Sending message to PRD conversation for session: {}", session_id);
     tracing::debug!("Message length: {} chars", message.len());
     
+    // Get session to retrieve model from config
+    let session = SESSION_MANAGER
+        .get_session(&session_id)
+        .await
+        .map_err(|e| {
+            tracing::error!("Session not found for PRD message: {}", session_id);
+            ServerFnError::new(e.to_string())
+        })?;
+    
+    let model = session.config.model.clone();
+    tracing::debug!("Using model '{}' from session config", model);
+    
     CONVERSATION_MANAGER
-        .send_message(&session_id, message)
+        .send_message(&session_id, message, model)
         .await
         .map_err(|e| {
             tracing::error!("Failed to send message for {}: {}", session_id, e);

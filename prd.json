@@ -1,19 +1,15 @@
 {
-  "project": "Project Repository File Picker",
-  "branch_name": "ralph/file-picker-3",
-  "description": "Users currently have no way to browse and select project repositories through the UI. This creates friction in the workflow when creating sessions or configuring projects, requiring users to manually type paths or work outside the application to determine the correct repository location.",
+  "project": "Model Picker Testing & Enhancement",
+  "branch_name": "ralph/model-type",
+  "description": "The model picker UI allows users to select a model, but the backend ignores this selection and uses a hardcoded \"opus-4.5-thinking\" model. Additionally, users need separate model configurations for PRD generation vs execution phases, and a \"cursor auto\" model option.",
   "stories": [
     {
       "id": "US-001",
-      "title": "Browse File System",
-      "description": "As a** Ralph user I want** to browse my local file system in an intuitive interface So that** I can easily navigate to my project repository without memorizing the full path",
+      "title": "Fix Hardcoded Model Bug",
+      "description": "As a** developer I want** my model selection to be respected So that** I can use the model I chose, not a hardcoded default",
       "acceptance_criteria": [
-        "File picker displays current directory path",
-        "User can navigate up to parent directories",
-        "User can click into subdirectories",
-        "Directories are visually distinguished from files",
-        "File picker shows a tree or list view of directories",
-        "UI is responsive and works across desktop, web, and mobile platforms",
+        "`PrdConversationManager` uses model from `SessionConfig`, not hardcoded value",
+        "Unit test verifies selected model is passed through",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -22,98 +18,60 @@
     },
     {
       "id": "US-002",
-      "title": "Select Repository Directory",
-      "description": "As a** Ralph user I want** to select a specific directory as my project repository So that** I can proceed with session creation or configuration",
+      "title": "Add Auto Model Option",
+      "description": "As a** developer I want** an \"auto\" model option So that** cursor-agent can pick the best model for me",
       "acceptance_criteria": [
-        "User can click a directory to select it",
-        "Selected directory is visually highlighted",
-        "\"Select\" or \"Choose\" button confirms the selection",
-        "Selected path is returned to the parent component",
-        "User cannot select files (only directories)",
-        "Selection is validated before confirmation",
+        "\"Auto\" option appears in model dropdown",
+        "Selecting \"auto\" passes `--model auto` to cursor-agent",
+        "Unit test verifies auto model handling",
         "Typecheck passes"
       ],
-      "priority": 1,
-      "passes": true,
+      "priority": 2,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Search and Filter Directories",
-      "description": "As a** Ralph user I want** to search or filter directories by name So that** I can quickly find my repository in large directory structures",
+      "title": "Split Model Settings (Backend)",
+      "description": "As a** developer I want** separate model settings for PRD and execution So that** I can use different models for planning vs implementation",
       "acceptance_criteria": [
-        "Search input field is visible in file picker",
-        "Directories are filtered as user types",
-        "Search is case-insensitive",
-        "Search highlights or filters matching directories",
-        "Clear button resets search filter",
-        "Search works without delay or performance issues",
+        "`SessionConfig` has `prd_model` and `execution_model` fields",
+        "PRD generation uses `prd_model`",
+        "Execution uses `execution_model`",
+        "Unit tests verify each model is used in correct phase",
         "Typecheck passes"
       ],
-      "priority": 2,
-      "passes": true,
+      "priority": 3,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Quick Access to Common Locations",
-      "description": "As a** Ralph user I want** quick access to common directories (Home, Documents, Projects) So that** I can navigate to frequently used locations faster",
+      "title": "Split Model Settings (UI)",
+      "description": "As a** developer I want** two separate model dropdowns in the UI So that** I can configure PRD and execution models independently",
       "acceptance_criteria": [
-        "Sidebar or shortcut list shows common locations",
-        "Clicking a shortcut navigates to that directory",
-        "Common locations include: Home, Documents, Desktop, common project folders",
-        "Shortcuts are platform-appropriate (Linux, macOS, Windows)",
-        "Recent or favorited directories appear if applicable",
-        "Typecheck passes"
+        "UI shows \"PRD Model\" dropdown",
+        "UI shows \"Execution Model\" dropdown",
+        "Both include \"Auto\" option",
+        "Selections persist to backend correctly",
+        "Typecheck passes",
+        "Verify in browser"
       ],
-      "priority": 2,
-      "passes": true,
+      "priority": 4,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Handle Permission Errors Gracefully",
-      "description": "As a** Ralph user I want** clear feedback when I try to access restricted directories So that** I understand why I cannot navigate to certain paths",
+      "title": "Pass Root Path to PRD Generation",
+      "description": "As a** developer I want** the PRD model to know my code folder So that** it can analyze the codebase when creating requirements",
       "acceptance_criteria": [
-        "Permission denied errors are caught",
-        "User sees a clear error message",
-        "File picker remains functional after error",
-        "User can navigate to alternate directories",
-        "Protected directories show a lock icon or indicator",
+        "`root_path` from folder picker is passed to PRD generation endpoint",
+        "Unit test verifies root_path is accessible during PRD generation",
         "Typecheck passes"
       ],
-      "priority": 2,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-006",
-      "title": "Remember Last Selected Path",
-      "description": "As a** Ralph user I want** the file picker to remember my last selected or browsed directory So that** I can quickly return to my working directories",
-      "acceptance_criteria": [
-        "File picker opens to last used directory by default",
-        "Last path is persisted between sessions",
-        "User can override and start from home if needed",
-        "Path memory is specific to the user/context",
-        "Typecheck passes"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-007",
-      "title": "Visual Git Repository Indicator",
-      "description": "As a** Ralph user I want** to see visual indicators for directories that contain Git repositories So that** I can quickly identify valid project repositories",
-      "acceptance_criteria": [
-        "Directories with `.git` folder show a Git icon or indicator",
-        "Indicator is visible in the directory list",
-        "Non-Git directories do not show the indicator",
-        "User can filter to show only Git repositories",
-        "Typecheck passes"
-      ],
-      "priority": 3,
-      "passes": true,
+      "priority": 5,
+      "passes": false,
       "notes": ""
     }
   ]

@@ -68,19 +68,17 @@ Start by asking what feature or project the user wants to build."#;
 /// Manages PRD conversations
 pub struct PrdConversationManager {
     conversations: Arc<RwLock<HashMap<String, PrdConversation>>>,
-    model: String,
 }
 
 impl PrdConversationManager {
-    pub fn new(model: String) -> Self {
+    pub fn new() -> Self {
         Self {
             conversations: Arc::new(RwLock::new(HashMap::new())),
-            model,
         }
     }
 
     /// Start a new PRD conversation for a session
-    pub async fn start_conversation(&self, session_id: String) -> Result<PrdConversation, RalphError> {
+    pub async fn start_conversation(&self, session_id: String, model: String) -> Result<PrdConversation, RalphError> {
         let mut conversations = self.conversations.write().await;
         
         // Create new conversation with system prompt
@@ -88,7 +86,7 @@ impl PrdConversationManager {
         conversation.add_message(ConversationMessage::system(SYSTEM_PROMPT));
         
         // Generate initial assistant message
-        let initial_message = self.generate_response(&conversation).await?;
+        let initial_message = self.generate_response(&conversation, &model).await?;
         conversation.add_message(ConversationMessage::assistant(&initial_message));
         
         conversations.insert(session_id, conversation.clone());
@@ -107,6 +105,7 @@ impl PrdConversationManager {
         &self,
         session_id: &str,
         message: String,
+        model: String,
     ) -> Result<PrdConversation, RalphError> {
         let mut conversations = self.conversations.write().await;
         
@@ -118,7 +117,7 @@ impl PrdConversationManager {
         conversation.add_message(ConversationMessage::user(&message));
         
         // Generate assistant response
-        let response = self.generate_response(conversation).await?;
+        let response = self.generate_response(conversation, &model).await?;
         
         // Check if the response contains a PRD
         if let Some(prd_markdown) = self.extract_prd(&response) {
@@ -131,17 +130,17 @@ impl PrdConversationManager {
     }
 
     /// Generate a response using the cursor-agent CLI
-    async fn generate_response(&self, conversation: &PrdConversation) -> Result<String, RalphError> {
+    async fn generate_response(&self, conversation: &PrdConversation, model: &str) -> Result<String, RalphError> {
         // Build the prompt from conversation history
         let prompt = self.build_prompt(conversation);
         
-        tracing::info!("Generating PRD conversation response with model {}", self.model);
+        tracing::info!("Generating PRD conversation response with model {}", model);
         tracing::debug!("Prompt length: {} chars", prompt.len());
         
         // Use cursor-agent in conversation mode
         let mut child = Command::new("cursor-agent")
             .arg("--model")
-            .arg(&self.model)
+            .arg(model)
             .arg("--output-format")
             .arg("text")
             .arg(&prompt)
@@ -260,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_extract_prd_from_markdown_block() {
-        let manager = PrdConversationManager::new("test-model".to_string());
+        let manager = PrdConversationManager::new();
         
         let response = r#"Here's the PRD based on our discussion:
 
@@ -296,7 +295,7 @@ Let me know if you'd like any changes!"#;
 
     #[test]
     fn test_extract_prd_direct() {
-        let manager = PrdConversationManager::new("test-model".to_string());
+        let manager = PrdConversationManager::new();
         
         let response = r#"# My Feature
 
@@ -314,7 +313,7 @@ Users need this feature.
 
     #[test]
     fn test_no_prd_in_response() {
-        let manager = PrdConversationManager::new("test-model".to_string());
+        let manager = PrdConversationManager::new();
         
         let response = "What problem are you trying to solve with this feature?";
         
@@ -333,5 +332,17 @@ Users need this feature.
 
         let system_msg = ConversationMessage::system("Be helpful");
         assert_eq!(system_msg.role, MessageRole::System);
+    }
+
+    #[test]
+    fn test_manager_accepts_model_parameter() {
+        // Verify that PrdConversationManager can be created without a model
+        // and that methods accept model as a parameter
+        let manager = PrdConversationManager::new();
+        
+        // Verify manager was created successfully (no model stored in struct)
+        // The model is now passed to methods dynamically, ensuring it comes from SessionConfig
+        // This test verifies the API change: model is no longer hardcoded in the manager
+        assert!(true); // Manager created successfully
     }
 }

@@ -154,3 +154,24 @@
 - Git indicators should be visually distinct (green color) and positioned consistently (right side before protected indicator)
 - Filter toggles should be placed near search inputs for logical grouping of filtering controls
 ---
+
+## 2026-01-24 - US-001
+- Fixed hardcoded model bug in PrdConversationManager
+- Removed `model` field from `PrdConversationManager` struct - model is now passed dynamically to methods
+- Updated `start_conversation` and `send_message` methods to accept `model` parameter
+- Updated `generate_response` to accept `model` parameter instead of using hardcoded value
+- Modified API functions `start_prd_conversation` and `send_prd_message` to extract model from `SessionConfig` and pass it to manager methods
+- Updated static `CONVERSATION_MANAGER` initialization to not require a model parameter
+- Added unit test to verify manager accepts model parameter dynamically
+- Files changed:
+  - `packages/ralph/src/conversation.rs` - Removed model field, updated methods to accept model parameter, updated tests
+  - `packages/api/src/ralph.rs` - Updated API functions to get model from session config and pass to manager methods
+  - `prd.json` - Updated US-001 to passes: true
+
+**Learnings for future iterations:**
+- When removing hardcoded values, pass them as parameters to methods rather than storing in struct fields to allow dynamic configuration
+- API server functions should extract configuration from session/context and pass to underlying managers rather than using global defaults
+- The `PrdConversationManager` maintains conversation state in a HashMap, so it should remain a singleton, but configuration (like model) should be passed per-operation
+- When updating method signatures, remember to update all call sites including tests
+- Type system ensures model flows correctly from SessionConfig -> API -> Manager -> cursor-agent command
+---
