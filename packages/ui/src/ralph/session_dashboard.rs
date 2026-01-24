@@ -117,8 +117,12 @@ fn SessionHeader(session: Session) -> Element {
                     span { class: "stat-value", "{session.current_iteration}" }
                 }
                 div { class: "stat",
-                    span { class: "stat-label", "Model" }
-                    span { class: "stat-value", "{session.config.model}" }
+                    span { class: "stat-label", "PRD Model" }
+                    span { class: "stat-value", "{session.config.prd_model}" }
+                }
+                div { class: "stat",
+                    span { class: "stat-label", "Execution Model" }
+                    span { class: "stat-value", "{session.config.execution_model}" }
                 }
                 div { class: "stat",
                     span { class: "stat-label", "Max Iterations" }

@@ -27,7 +27,8 @@ pub enum SessionStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SessionConfig {
-    pub model: String,
+    pub prd_model: String,
+    pub execution_model: String,
     pub max_iterations: u32,
     pub warn_threshold: u32,
     pub rotate_threshold: u32,
@@ -38,7 +39,8 @@ pub struct SessionConfig {
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
-            model: "opus-4.5-thinking".into(),
+            prd_model: "opus-4.5-thinking".into(),
+            execution_model: "opus-4.5-thinking".into(),
             max_iterations: 20,
             warn_threshold: 70_000,
             rotate_threshold: 80_000,
