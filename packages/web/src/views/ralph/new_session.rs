@@ -99,6 +99,7 @@ pub fn RalphNewSession() -> Element {
                         id: "model",
                         value: "{model}",
                         onchange: move |e| model.set(e.value()),
+                        option { value: "auto", "Auto (cursor-agent picks best model)" }
                         option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
                         option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
                         option { value: "gpt-5.2-high", "GPT 5.2 High" }

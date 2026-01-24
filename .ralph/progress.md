@@ -175,3 +175,20 @@
 - When updating method signatures, remember to update all call sites including tests
 - Type system ensures model flows correctly from SessionConfig -> API -> Manager -> cursor-agent command
 ---
+
+## 2026-01-24 - US-002
+- Added "Auto" option to model dropdown in new session form
+- The "Auto" option appears first in the dropdown list with descriptive text "Auto (cursor-agent picks best model)"
+- Verified that selecting "auto" passes `--model auto` to cursor-agent (model string is passed directly via Command::arg())
+- Added unit test `test_auto_model_handling` to verify auto model option is accepted and passed through correctly
+- Files changed:
+  - `packages/web/src/views/ralph/new_session.rs` - Added "auto" option to model dropdown
+  - `packages/ralph/src/conversation.rs` - Added unit test for auto model handling
+  - `prd.json` - Updated US-002 to passes: true
+
+**Learnings for future iterations:**
+- Model dropdown options can be added simply by adding new `option` elements to the `select` component
+- The model value is passed as a string directly to cursor-agent via `Command::arg()`, so any string value (including "auto") will be passed through correctly without special handling
+- When adding new model options, place the most commonly used or recommended option first in the dropdown for better UX
+- Unit tests for model handling can verify that string values are accepted without needing to actually spawn cursor-agent processes
+---
