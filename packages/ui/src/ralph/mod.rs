@@ -5,6 +5,7 @@ mod token_meter;
 mod story_progress;
 mod guardrails_panel;
 mod prd_editor;
+mod prd_conversation;
 mod file_picker;
 
 pub use session_list::SessionList;
@@ -14,4 +15,5 @@ pub use token_meter::TokenMeter;
 pub use story_progress::StoryProgress;
 pub use guardrails_panel::GuardrailsPanel;
 pub use prd_editor::PrdEditor;
+pub use prd_conversation::PrdConversation;
 pub use file_picker::FilePicker;

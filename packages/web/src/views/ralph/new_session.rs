@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use ralph::{SessionConfig, Prd};
-use ui::ralph::{PrdEditor, FilePicker};
+use ui::ralph::{PrdEditor, PrdConversation, FilePicker};
 
 #[component]
 pub fn RalphNewSession() -> Element {
@@ -15,6 +15,8 @@ pub fn RalphNewSession() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut session_id = use_signal(|| None::<String>);
     let mut step = use_signal(|| SetupStep::Config);
+    let mut prd_mode = use_signal(|| PrdMode::Conversation);
+    let mut generated_prd_markdown = use_signal(|| None::<String>);
 
     let create_session = move |e: FormEvent| {
         e.prevent_default();
@@ -56,6 +58,12 @@ pub fn RalphNewSession() -> Element {
             let nav = navigator();
             nav.push(format!("/{}", id).as_str());
         }
+    };
+
+    let on_prd_generated = move |prd_markdown: String| {
+        // Store the generated PRD markdown and switch to paste mode for preview
+        generated_prd_markdown.set(Some(prd_markdown));
+        prd_mode.set(PrdMode::Paste);
     };
 
     rsx! {
@@ -196,11 +204,39 @@ pub fn RalphNewSession() -> Element {
                 if let Some(id) = session_id() {
                     div { class: "prd-step",
                         h2 { "Set Product Requirements Document" }
-                        p { "Define the stories you want Ralph to work on. You can write in markdown and preview before saving." }
+                        p { 
+                            "Define the stories you want Ralph to work on. "
+                            "Use the conversation mode to build your PRD interactively, or paste your own markdown."
+                        }
+
+                        // Mode selector tabs
+                        div { class: "prd-mode-selector",
+                            button {
+                                class: if matches!(prd_mode(), PrdMode::Conversation) { "prd-mode-btn active" } else { "prd-mode-btn" },
+                                onclick: move |_| prd_mode.set(PrdMode::Conversation),
+                                "Conversation"
+                            }
+                            button {
+                                class: if matches!(prd_mode(), PrdMode::Paste) { "prd-mode-btn active" } else { "prd-mode-btn" },
+                                onclick: move |_| prd_mode.set(PrdMode::Paste),
+                                "Paste Markdown"
+                            }
+                        }
                         
-                        PrdEditor {
-                            session_id: id,
-                            on_prd_set: on_prd_set
+                        match prd_mode() {
+                            PrdMode::Conversation => rsx! {
+                                PrdConversation {
+                                    session_id: id.clone(),
+                                    on_prd_generated: on_prd_generated
+                                }
+                            },
+                            PrdMode::Paste => rsx! {
+                                PrdEditor {
+                                    session_id: id.clone(),
+                                    on_prd_set: on_prd_set,
+                                    initial_markdown: generated_prd_markdown()
+                                }
+                            }
                         }
 
                         div { class: "step-actions",
@@ -221,4 +257,10 @@ pub fn RalphNewSession() -> Element {
 enum SetupStep {
     Config,
     Prd,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum PrdMode {
+    Conversation,
+    Paste,
 }

@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
-use ralph::{Session, SessionConfig, Prd, Guardrail};
+use ralph::{Session, SessionConfig, Prd, Guardrail, PrdConversation};
 
 #[cfg(feature = "server")]
-use ralph::{SessionManager, GuardrailManager};
+use ralph::{SessionManager, GuardrailManager, PrdConversationManager};
 #[cfg(feature = "server")]
 use std::sync::Arc;
 
@@ -10,6 +10,7 @@ use std::sync::Arc;
 #[cfg(feature = "server")]
 lazy_static::lazy_static! {
     static ref SESSION_MANAGER: Arc<SessionManager> = Arc::new(SessionManager::new());
+    static ref CONVERSATION_MANAGER: Arc<PrdConversationManager> = Arc::new(PrdConversationManager::new("opus-4.5-thinking".to_string()));
 }
 
 // Session Management
@@ -244,6 +245,63 @@ fn parse_markdown_prd(markdown: &str, project_path: &str, branch_name: Option<&s
         description: description.trim().to_string(),
         stories,
     })
+}
+
+// PRD Conversation
+
+#[server]
+pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversation, ServerFnError> {
+    tracing::info!("Starting PRD conversation for session: {}", session_id);
+    
+    // Verify session exists
+    SESSION_MANAGER
+        .get_session(&session_id)
+        .await
+        .map_err(|e| {
+            tracing::error!("Session not found for PRD conversation: {}", session_id);
+            ServerFnError::new(e.to_string())
+        })?;
+    
+    CONVERSATION_MANAGER
+        .start_conversation(session_id.clone())
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to start PRD conversation for {}: {}", session_id, e);
+            ServerFnError::new(e.to_string())
+        })
+        .inspect(|conv| {
+            tracing::info!("PRD conversation started with {} messages", conv.messages.len());
+        })
+}
+
+#[server]
+pub async fn send_prd_message(
+    session_id: String,
+    message: String,
+) -> Result<PrdConversation, ServerFnError> {
+    tracing::info!("Sending message to PRD conversation for session: {}", session_id);
+    tracing::debug!("Message length: {} chars", message.len());
+    
+    CONVERSATION_MANAGER
+        .send_message(&session_id, message)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to send message for {}: {}", session_id, e);
+            ServerFnError::new(e.to_string())
+        })
+        .inspect(|conv| {
+            tracing::info!(
+                "Conversation updated, {} messages, PRD generated: {}",
+                conv.messages.len(),
+                conv.generated_prd.is_some()
+            );
+        })
+}
+
+#[server]
+pub async fn get_prd_conversation(session_id: String) -> Result<Option<PrdConversation>, ServerFnError> {
+    tracing::debug!("Getting PRD conversation for session: {}", session_id);
+    Ok(CONVERSATION_MANAGER.get_conversation(&session_id).await)
 }
 
 // Guardrails

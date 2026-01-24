@@ -2,9 +2,13 @@ use dioxus::prelude::*;
 use ralph::{Prd, Story};
 
 #[component]
-pub fn PrdEditor(session_id: String, on_prd_set: EventHandler<Prd>) -> Element {
+pub fn PrdEditor(
+    session_id: String,
+    on_prd_set: EventHandler<Prd>,
+    #[props(default)] initial_markdown: Option<String>,
+) -> Element {
     let session_id = use_signal(|| session_id);
-    let mut markdown = use_signal(|| String::new());
+    let mut markdown = use_signal(|| initial_markdown.unwrap_or_default());
     let mut prd_preview = use_signal(|| None::<Prd>);
     let mut converting = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);

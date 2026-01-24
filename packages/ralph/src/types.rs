@@ -161,6 +161,78 @@ pub enum IterationResult {
     Gutter(String),
 }
 
+// Conversation types for PRD generation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum MessageRole {
+    User,
+    Assistant,
+    System,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConversationMessage {
+    pub role: MessageRole,
+    pub content: String,
+    pub timestamp: SystemTime,
+}
+
+impl ConversationMessage {
+    pub fn user(content: impl Into<String>) -> Self {
+        Self {
+            role: MessageRole::User,
+            content: content.into(),
+            timestamp: SystemTime::now(),
+        }
+    }
+
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: MessageRole::Assistant,
+            content: content.into(),
+            timestamp: SystemTime::now(),
+        }
+    }
+
+    pub fn system(content: impl Into<String>) -> Self {
+        Self {
+            role: MessageRole::System,
+            content: content.into(),
+            timestamp: SystemTime::now(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PrdConversation {
+    pub session_id: String,
+    pub messages: Vec<ConversationMessage>,
+    pub generated_prd: Option<String>,
+    pub created_at: SystemTime,
+    pub updated_at: SystemTime,
+}
+
+impl PrdConversation {
+    pub fn new(session_id: String) -> Self {
+        Self {
+            session_id,
+            messages: Vec::new(),
+            generated_prd: None,
+            created_at: SystemTime::now(),
+            updated_at: SystemTime::now(),
+        }
+    }
+
+    pub fn add_message(&mut self, message: ConversationMessage) {
+        self.messages.push(message);
+        self.updated_at = SystemTime::now();
+    }
+
+    pub fn set_generated_prd(&mut self, prd: String) {
+        self.generated_prd = Some(prd);
+        self.updated_at = SystemTime::now();
+    }
+}
+
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum RalphError {
     #[error("IO error: {0}")]
