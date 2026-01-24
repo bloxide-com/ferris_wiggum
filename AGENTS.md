@@ -274,3 +274,15 @@ The initial UI rendered by the component on the client must be identical to the 
 ## Web package feature checks
 
 - The `packages/web` crate uses feature flags: run `cargo check -p web --features web` and `cargo check -p web --features server` to validate both sides compile.
+
+## Web dark theme styling
+
+- `packages/web/assets/main.css` defines shared theme CSS variables (e.g. `--bg`, `--surface`, `--text`) used across the web UI.
+- Prefer using those variables in `packages/web/assets/styling/ralph.css` instead of hardcoded hex colors to avoid contrast regressions (e.g. “white-on-white” when a component uses `background: #fff` and inherits `color` from `body`).
+- When editing shared UI asset styles in `packages/ui/assets/**` (like `navbar.css`), use CSS variable fallbacks (`var(--surface, #151a23)`) so desktop/mobile builds that don’t load the web `main.css` still render reasonably.
+
+## Browser verification (headless smoke)
+
+- You can smoke-check web UI changes without interactive dev tools by running a short-lived server and taking headless screenshots:
+  - Serve: `dx serve --open false --hot-reload false --interactive false --addr 127.0.0.1 --port 5080`
+  - Screenshot: `google-chrome-stable --headless=new --virtual-time-budget=8000 --window-size=1440,900 --screenshot=/tmp/page.png http://127.0.0.1:5080/new`

@@ -1,16 +1,25 @@
 #navbar {
   display: flex;
   flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  background: var(--surface, #151a23);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
 }
 
 #navbar a {
-  color: #ffffff;
-  margin-right: 20px;
+  color: var(--text, #ffffff);
+  padding: 8px 10px;
+  border-radius: 999px;
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 #navbar a:hover {
   cursor: pointer;
-  color: #91a4d2;
+  color: var(--primary, #91a4d2);
+  background: rgba(91, 140, 255, 0.1);
 }

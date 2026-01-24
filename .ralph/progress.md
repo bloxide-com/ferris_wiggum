@@ -190,3 +190,22 @@
   - There is no `.ralph/guardrails.md` in this repo currently; guardrails knowledge is likely captured in code (`packages/ralph/src/guardrails.rs`) and in this progress log instead.
   - No browser automation/e2e harness (Playwright/Cypress/etc.) appears configured in the repo right now; “Verify in browser” is currently a manual step.
 ---
+
+## 2026-01-24 09:35:34 EST - US-006
+- Implemented a cohesive dark theme across the web app by introducing shared CSS variables and refactoring Ralph UI styles away from light `#fff` surfaces that caused white-on-white contrast issues.
+- Added missing dark-theme styles for the “New Session” form, PRD conversation/chat, and PRD editor (tabs, inputs, message bubbles, code blocks).
+- Verified in browser using a short-lived `dx serve` run + headless Chrome screenshots:
+  - `/tmp/us006-dashboard.png`
+  - `/tmp/us006-new-session.png`
+- Files changed:
+  - `packages/web/assets/main.css`
+  - `packages/web/assets/styling/ralph.css`
+  - `packages/ui/assets/styling/navbar.css`
+  - `AGENTS.md`
+  - `prd.json`
+- **Learnings for future iterations:**
+  - A dark `body` + component surfaces hardcoded to `#fff` is a common cause of contrast regressions when components rely on `color: inherit`; prefer theme variables for both background and text.
+  - The web bundle includes assets from dependency crates (e.g. `packages/ui/assets/**`), so shared CSS like `navbar.css` affects the web UI too.
+  - When editing shared CSS in `packages/ui/assets/**`, use `var(--token, fallback)` so non-web builds that don’t load the web theme variables remain usable.
+  - For automated “Verify in browser” smoke checks, `dx serve --open false --hot-reload false` + `google-chrome-stable --headless=new --virtual-time-budget=... --screenshot=...` works well for quick route snapshots.
+---
