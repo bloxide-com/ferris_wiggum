@@ -5421,6 +5421,8 @@ dependencies = [
  "dioxus",
  "gloo-timers",
  "ralph",
+ "serde",
+ "serde_json",
  "ui",
  "web-sys",
 ]

@@ -3,7 +3,10 @@ use dioxus::prelude::*;
 use ui::Navbar;
 use views::{RalphDashboard, RalphNewSession, RalphSession};
 
+mod hooks;
 mod views;
+
+pub use hooks::use_persisted_signal;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
