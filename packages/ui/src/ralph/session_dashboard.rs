@@ -1,6 +1,6 @@
+use super::{ActivityLog, GuardrailsPanel, StoryProgress, TokenMeter};
 use dioxus::prelude::*;
 use ralph::Session;
-use super::{StoryProgress, ActivityLog, TokenMeter, GuardrailsPanel};
 
 #[component]
 pub fn SessionDashboard(session_id: ReadSignal<String>) -> Element {
@@ -27,7 +27,7 @@ pub fn SessionDashboard(session_id: ReadSignal<String>) -> Element {
                             }
 
                             div { class: "ralph-sidebar",
-                                TokenMeter { 
+                                TokenMeter {
                                     usage: sess.token_usage.clone(),
                                     warn_threshold: sess.config.warn_threshold,
                                     rotate_threshold: sess.config.rotate_threshold,

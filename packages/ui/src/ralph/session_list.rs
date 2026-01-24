@@ -24,8 +24,8 @@ pub fn SessionList() -> Element {
                 }
             }
 
-            Link { 
-                to: "/new", 
+            Link {
+                to: "/new",
                 class: "new-session-btn",
                 "New Session"
             }
@@ -64,16 +64,16 @@ fn SessionCard(session: Session) -> Element {
         Link {
             to: format!("/{}", session.id),
             class: "session-card",
-            
+
             div { class: "session-header",
                 h3 { "{session.project_path}" }
                 span { class: "session-status {status_class}", "{status_text}" }
             }
-            
+
             div { class: "session-info",
                 span { "Iteration: {session.current_iteration}" }
                 span { "Tokens: {session.token_usage.total}" }
-                
+
                 if let Some(info) = stories_info {
                     span { "{info}" }
                 }

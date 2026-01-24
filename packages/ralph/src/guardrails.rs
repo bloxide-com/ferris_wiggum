@@ -12,20 +12,20 @@ impl GuardrailManager {
 
     pub async fn load_guardrails(&self) -> Result<Vec<Guardrail>, RalphError> {
         let guardrails_path = Path::new(&self.project_path).join(".ralph/guardrails.md");
-        
+
         if !guardrails_path.exists() {
             return Ok(Vec::new());
         }
 
         let content = tokio::fs::read_to_string(&guardrails_path).await?;
         let guardrails = self.parse_guardrails(&content);
-        
+
         Ok(guardrails)
     }
 
     pub async fn add_guardrail(&self, guardrail: &Guardrail) -> Result<(), RalphError> {
         let guardrails_path = Path::new(&self.project_path).join(".ralph/guardrails.md");
-        
+
         let mut content = if guardrails_path.exists() {
             tokio::fs::read_to_string(&guardrails_path).await?
         } else {
@@ -35,14 +35,11 @@ impl GuardrailManager {
         // Format guardrail as markdown
         content.push_str(&format!(
             "\n## Sign: {}\n\n- **Trigger**: {}\n- **Instruction**: {}\n- **Added after**: {}\n\n",
-            guardrail.title,
-            guardrail.trigger,
-            guardrail.instruction,
-            guardrail.added_after
+            guardrail.title, guardrail.trigger, guardrail.instruction, guardrail.added_after
         ));
 
         tokio::fs::write(&guardrails_path, content).await?;
-        
+
         Ok(())
     }
 
@@ -57,10 +54,19 @@ impl GuardrailManager {
         for line in content.lines() {
             if line.starts_with("## Sign:") {
                 // Save previous guardrail if complete
-                if let (Some(id), Some(title), Some(trigger), Some(instruction), Some(added_after)) =
-                    (current_id.take(), current_title.take(), current_trigger.take(), 
-                     current_instruction.take(), current_added_after.take())
-                {
+                if let (
+                    Some(id),
+                    Some(title),
+                    Some(trigger),
+                    Some(instruction),
+                    Some(added_after),
+                ) = (
+                    current_id.take(),
+                    current_title.take(),
+                    current_trigger.take(),
+                    current_instruction.take(),
+                    current_added_after.take(),
+                ) {
                     guardrails.push(Guardrail {
                         id,
                         title,
@@ -75,18 +81,31 @@ impl GuardrailManager {
                 current_id = Some(uuid::Uuid::new_v4().to_string());
                 current_title = Some(title);
             } else if line.starts_with("- **Trigger**:") {
-                current_trigger = Some(line.trim_start_matches("- **Trigger**:").trim().to_string());
+                current_trigger =
+                    Some(line.trim_start_matches("- **Trigger**:").trim().to_string());
             } else if line.starts_with("- **Instruction**:") {
-                current_instruction = Some(line.trim_start_matches("- **Instruction**:").trim().to_string());
+                current_instruction = Some(
+                    line.trim_start_matches("- **Instruction**:")
+                        .trim()
+                        .to_string(),
+                );
             } else if line.starts_with("- **Added after**:") {
-                current_added_after = Some(line.trim_start_matches("- **Added after**:").trim().to_string());
+                current_added_after = Some(
+                    line.trim_start_matches("- **Added after**:")
+                        .trim()
+                        .to_string(),
+                );
             }
         }
 
         // Save last guardrail if complete
-        if let (Some(id), Some(title), Some(trigger), Some(instruction), Some(added_after)) =
-            (current_id, current_title, current_trigger, current_instruction, current_added_after)
-        {
+        if let (Some(id), Some(title), Some(trigger), Some(instruction), Some(added_after)) = (
+            current_id,
+            current_title,
+            current_trigger,
+            current_instruction,
+            current_added_after,
+        ) {
             guardrails.push(Guardrail {
                 id,
                 title,
@@ -101,7 +120,7 @@ impl GuardrailManager {
 
     pub async fn format_for_prompt(&self) -> Result<String, RalphError> {
         let guardrails = self.load_guardrails().await?;
-        
+
         if guardrails.is_empty() {
             return Ok(String::new());
         }
@@ -112,10 +131,7 @@ impl GuardrailManager {
         for guardrail in guardrails {
             output.push_str(&format!(
                 "## {}\n- **When**: {}\n- **Do**: {}\n- **Context**: {}\n\n",
-                guardrail.title,
-                guardrail.trigger,
-                guardrail.instruction,
-                guardrail.added_after
+                guardrail.title, guardrail.trigger, guardrail.instruction, guardrail.added_after
             ));
         }
 
@@ -130,7 +146,7 @@ mod tests {
     #[test]
     fn test_parse_guardrails() {
         let manager = GuardrailManager::new("/tmp/test".to_string());
-        
+
         let content = r#"# Ralph Guardrails (Signs)
 
 ## Sign: Check imports before adding

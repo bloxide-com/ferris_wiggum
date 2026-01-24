@@ -54,7 +54,7 @@ fn DirectoryEntry(
     } else {
         "file-picker-entry directory"
     };
-    
+
     rsx! {
         div {
             class: class_str,
@@ -68,7 +68,7 @@ fn DirectoryEntry(
                     on_navigate.call(path_for_navigate.clone());
                 }
             },
-            span { class: "entry-icon", 
+            span { class: "entry-icon",
                 if is_protected { "🔒" } else { "📁" }
             }
             span { class: "entry-name", "{name}" }
@@ -115,10 +115,7 @@ fn FileEntry(name: String) -> Element {
 }
 
 #[component]
-fn ShortcutItem(
-    dir: api::ralph::CommonDirectory,
-    on_navigate: EventHandler<String>,
-) -> Element {
+fn ShortcutItem(dir: api::ralph::CommonDirectory, on_navigate: EventHandler<String>) -> Element {
     let dir_path = dir.path.clone();
     rsx! {
         div {
@@ -131,27 +128,22 @@ fn ShortcutItem(
 }
 
 #[component]
-pub fn FilePicker(
-    value: Signal<String>,
-    on_select: Option<EventHandler<String>>,
-) -> Element {
+pub fn FilePicker(value: Signal<String>, on_select: Option<EventHandler<String>>) -> Element {
     let mut current_path = use_signal(|| None::<String>);
     let mut selected_path = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
     let mut search_query = use_signal(|| String::new());
     let mut show_only_git = use_signal(|| false);
+    let mut has_attempted_select = use_signal(|| false);
 
     // Resource for common directories
-    let common_dirs = use_resource(move || async move {
-        api::ralph::get_common_directories().await
-    });
+    let common_dirs =
+        use_resource(move || async move { api::ralph::get_common_directories().await });
 
     // Resource that reloads when current_path changes
     let directory_listing = use_resource(move || {
         let path = current_path();
-        async move {
-            api::ralph::list_directory(path).await
-        }
+        async move { api::ralph::list_directory(path).await }
     });
 
     // Memoize entries to avoid lifetime issues
@@ -166,7 +158,7 @@ pub fn FilePicker(
     let filtered_entries = use_memo(move || {
         let query = search_query().to_lowercase();
         let git_only = show_only_git();
-        
+
         entries()
             .iter()
             .filter(|entry| {
@@ -185,6 +177,13 @@ pub fn FilePicker(
             .collect::<Vec<_>>()
     });
 
+    // Validate the current input/selected path against the server.
+    // This enables/disables "Select" and prevents server errors from invalid input.
+    let validation = use_resource(move || {
+        let path = value();
+        async move { api::ralph::validate_project_path(path).await }
+    });
+
     // Initialize with last used path or home directory
     use_effect(move || {
         if current_path().is_none() {
@@ -192,7 +191,7 @@ pub fn FilePicker(
                 error.set(None);
                 // Try to load last path from localStorage (web only)
                 let initial_path = load_last_path();
-                
+
                 match api::ralph::list_directory(initial_path.clone()).await {
                     Ok(listing) => {
                         let path = listing.current_path.clone();
@@ -241,40 +240,38 @@ pub fn FilePicker(
     };
 
     let handle_directory_select = move |path: String| {
+        // Single click selects the folder AND updates the input path immediately.
+        // This matches the "select vs navigate" UX and keeps validation in sync.
         selected_path.set(Some(path.clone()));
+        value.set(path);
+        has_attempted_select.set(false);
     };
 
     let handle_directory_navigate = move |path: String| {
         error.set(None);
         selected_path.set(None); // Clear selection when navigating
-        // Trigger resource reload by setting current_path
-        // The resource will handle permission errors
+                                 // Trigger resource reload by setting current_path
+                                 // The resource will handle permission errors
         current_path.set(Some(path.clone()));
         save_last_path(&path);
     };
 
     let confirm_selection = move |_| {
-        if let Some(path) = selected_path() {
-            // Validate that the path is a directory
-            let path_clone = path.clone();
-            spawn(async move {
-                error.set(None);
-                match api::ralph::list_directory(Some(path_clone.clone())).await {
-                    Ok(_) => {
-                        // Path is valid directory, confirm selection
-                        value.set(path_clone.clone());
-                        save_last_path(&path_clone);
-                        selected_path.set(None); // Clear selection after confirming
-                        if let Some(handler) = on_select {
-                            handler.call(path_clone);
-                        }
-                    }
-                    Err(e) => {
-                        error.set(Some(format!("Cannot select: {}", e)));
-                        selected_path.set(None);
-                    }
-                }
-            });
+        has_attempted_select.set(true);
+        let path = value();
+        if path.trim().is_empty() {
+            return;
+        }
+
+        let is_valid_git_repo = matches!(validation(), Some(Ok(ref v)) if v.is_git_repository);
+        if !is_valid_git_repo {
+            return;
+        }
+
+        // Confirm selection (parent may use this as an explicit "lock" action).
+        save_last_path(&path);
+        if let Some(handler) = on_select {
+            handler.call(path);
         }
     };
 
@@ -477,18 +474,40 @@ pub fn FilePicker(
                 input {
                     r#type: "text",
                     value: "{value}",
-                    oninput: move |e| value.set(e.value()),
+                    oninput: move |e| {
+                        value.set(e.value());
+                        selected_path.set(None);
+                        has_attempted_select.set(false);
+                    },
                     placeholder: "No directory selected",
                 }
-                if let Some(selected) = selected_path() {
-                    div { class: "selection-preview",
-                        span { "Selected: " }
-                        span { class: "selected-path-preview", "{selected}" }
-                    }
-                    button {
-                        class: "btn btn-primary",
-                        onclick: confirm_selection,
-                        "Select"
+                {
+                    let (is_valid, message) = match validation() {
+                        Some(Ok(v)) => (v.is_git_repository, v.message),
+                        Some(Err(e)) => (false, Some(format!("Validation error: {}", e))),
+                        None => (false, None),
+                    };
+
+                    rsx! {
+                        if let Some(selected) = selected_path() {
+                            div { class: "selection-preview",
+                                span { "Selected: " }
+                                span { class: "selected-path-preview", "{selected}" }
+                            }
+                        }
+
+                        if has_attempted_select() && !is_valid && !value().trim().is_empty() {
+                            if let Some(msg) = message.clone() {
+                                div { class: "error-message", "{msg}" }
+                            }
+                        }
+
+                        button {
+                            class: "btn btn-primary",
+                            onclick: confirm_selection,
+                            disabled: value().trim().is_empty() || !is_valid,
+                            "Select"
+                        }
                     }
                 }
             }

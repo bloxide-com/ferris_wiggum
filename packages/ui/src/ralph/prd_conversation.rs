@@ -1,11 +1,8 @@
 use dioxus::prelude::*;
-use ralph::{MessageRole, ConversationMessage};
+use ralph::{ConversationMessage, MessageRole};
 
 #[component]
-pub fn PrdConversation(
-    session_id: String,
-    on_prd_generated: EventHandler<String>,
-) -> Element {
+pub fn PrdConversation(session_id: String, on_prd_generated: EventHandler<String>) -> Element {
     let session_id = use_signal(|| session_id);
     let mut messages = use_signal(|| Vec::<ConversationMessage>::new());
     let mut input_text = use_signal(|| String::new());
