@@ -1,43 +1,153 @@
 use dioxus::prelude::*;
 use ralph::{Prd, SessionConfig};
+use serde::{Deserialize, Serialize};
 use ui::ralph::{FilePicker, PrdConversation, PrdEditor};
+
+#[cfg(feature = "web")]
+use web_sys::{window, Event, EventTarget, VisibilityState};
+#[cfg(feature = "web")]
+use wasm_bindgen::JsCast;
+
+use crate::use_persisted_signal;
 
 #[component]
 pub fn RalphNewSession() -> Element {
     // `project_path_input` tracks transient browsing/typing state.
     // `locked_project_path` is only updated when the user explicitly clicks "Select" in the FilePicker.
     // Session creation must use the locked value.
-    let project_path_input = use_signal(|| String::new());
-    let mut locked_project_path = use_signal(|| None::<String>);
-    let mut prd_model = use_signal(|| "opus-4.5-thinking".to_string());
-    let mut execution_model = use_signal(|| "opus-4.5-thinking".to_string());
-    let mut max_iterations = use_signal(|| 20);
-    let mut warn_threshold = use_signal(|| 70_000);
-    let mut rotate_threshold = use_signal(|| 80_000);
-    let mut branch_name = use_signal(|| String::new());
-    let mut open_pr = use_signal(|| false);
+    // All form state is persisted to localStorage under key `ralph_new_session_draft`
+    let mut draft = use_persisted_signal(
+        "ralph_new_session_draft",
+        || NewSessionDraft {
+            project_path_input: String::new(),
+            locked_project_path: None,
+            prd_model: "opus-4.5-thinking".to_string(),
+            execution_model: "opus-4.5-thinking".to_string(),
+            max_iterations: 20,
+            warn_threshold: 70_000,
+            rotate_threshold: 80_000,
+            branch_name: String::new(),
+            open_pr: false,
+            session_id: None,
+            step: SetupStep::Config,
+            prd_mode: PrdMode::Conversation,
+            generated_prd_markdown: None,
+        },
+    );
+
     let mut creating = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
-    let mut session_id = use_signal(|| None::<String>);
-    let mut step = use_signal(|| SetupStep::Config);
-    let mut prd_mode = use_signal(|| PrdMode::Conversation);
-    let mut generated_prd_markdown = use_signal(|| None::<String>);
+
+    // Create a local signal for FilePicker that syncs with draft
+    let mut project_path_input = use_signal(|| draft().project_path_input.clone());
+
+    // Sync project_path_input signal with draft when draft changes
+    use_effect(move || {
+        let draft_value = draft().project_path_input.clone();
+        if project_path_input() != draft_value {
+            project_path_input.set(draft_value);
+        }
+    });
+
+    // Update draft when project_path_input changes (user typing in FilePicker)
+    use_effect(move || {
+        let input_value = project_path_input();
+        let current_draft = draft();
+        if current_draft.project_path_input != input_value {
+            draft.write().project_path_input = input_value;
+        }
+    });
+
+    // Listen for visibility changes to restore state when tab becomes visible
+    #[cfg(feature = "web")]
+    {
+        // Track visibility state with a signal
+        let visibility_state = use_signal(|| {
+            if let Some(window) = window() {
+                if let Some(document) = window.document() {
+                    document.visibility_state()
+                } else {
+                    VisibilityState::Visible
+                }
+            } else {
+                VisibilityState::Visible
+            }
+        });
+
+        // Set up visibility change listener
+        use_effect(move || {
+            let window = window();
+            let Some(window) = window else {
+                return;
+            };
+            let Some(document) = window.document() else {
+                return;
+            };
+            let event_target: &EventTarget = document.as_ref();
+
+            let mut visibility_signal = visibility_state;
+            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |_e: Event| {
+                let Some(window) = web_sys::window() else {
+                    return;
+                };
+                let Some(document) = window.document() else {
+                    return;
+                };
+                
+                // Update visibility state signal when it changes
+                visibility_signal.set(document.visibility_state());
+            }) as Box<dyn FnMut(Event)>);
+
+            let _ = event_target
+                .add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref());
+
+            // Keep the closure alive for the lifetime of the component
+            closure.forget();
+        });
+
+        // Re-read from localStorage when visibility becomes "visible"
+        use_effect(move || {
+            // Read visibility state to track it
+            let is_visible = visibility_state() == VisibilityState::Visible;
+            
+            if is_visible {
+                // Re-read from localStorage and update signal if needed
+                let window = window();
+                if let Some(window) = window {
+                    if let Ok(Some(storage)) = window.local_storage() {
+                        if let Ok(Some(stored)) = storage.get_item("ralph_new_session_draft") {
+                            if let Ok(deserialized) = serde_json::from_str::<NewSessionDraft>(&stored) {
+                                let current = draft();
+                                // Only update if the stored value differs
+                                if deserialized != current {
+                                    draft.set(deserialized);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     let can_create_session = use_memo(move || {
-        let locked = locked_project_path();
+        let draft = draft();
+        let locked = draft.locked_project_path.clone();
         if let Some(locked) = locked {
-            !locked.trim().is_empty() && locked == project_path_input()
+            !locked.trim().is_empty() && locked == draft.project_path_input
         } else {
             false
         }
     });
 
     let create_session = move |_| {
+        let mut draft_signal = draft;
         spawn(async move {
             creating.set(true);
             error.set(None);
 
-            let locked = locked_project_path();
+            let draft = draft_signal();
+            let locked = draft.locked_project_path.clone();
             let Some(project_path) = locked else {
                 error.set(Some(
                     "Please click “Select” in the file picker to confirm a valid repo path."
@@ -47,7 +157,7 @@ pub fn RalphNewSession() -> Element {
                 return;
             };
 
-            if project_path != project_path_input() {
+            if project_path != draft.project_path_input {
                 error.set(Some(
                     "The project path changed since you clicked “Select”. Click “Select” again to confirm the updated path."
                         .to_string(),
@@ -57,23 +167,23 @@ pub fn RalphNewSession() -> Element {
             }
 
             let config = SessionConfig {
-                prd_model: prd_model(),
-                execution_model: execution_model(),
-                max_iterations: max_iterations(),
-                warn_threshold: warn_threshold(),
-                rotate_threshold: rotate_threshold(),
-                branch_name: if branch_name().is_empty() {
+                prd_model: draft.prd_model.clone(),
+                execution_model: draft.execution_model.clone(),
+                max_iterations: draft.max_iterations,
+                warn_threshold: draft.warn_threshold,
+                rotate_threshold: draft.rotate_threshold,
+                branch_name: if draft.branch_name.is_empty() {
                     None
                 } else {
-                    Some(branch_name())
+                    Some(draft.branch_name.clone())
                 },
-                open_pr: open_pr(),
+                open_pr: draft.open_pr,
             };
 
             match api::ralph::create_session(project_path, config).await {
                 Ok(session) => {
-                    session_id.set(Some(session.id));
-                    step.set(SetupStep::Prd);
+                    draft_signal.write().session_id = Some(session.id.clone());
+                    draft_signal.write().step = SetupStep::Prd;
                     creating.set(false);
                 }
                 Err(e) => {
@@ -85,18 +195,34 @@ pub fn RalphNewSession() -> Element {
         });
     };
 
-    let on_prd_set = move |_prd: Prd| {
-        // Navigate to session page
-        if let Some(id) = session_id() {
-            let nav = navigator();
-            nav.push(format!("/{}", id).as_str());
+    let on_prd_set = {
+        let draft_signal = draft;
+        move |_prd: Prd| {
+            // Clear localStorage when navigating to session page (successful completion)
+            #[cfg(feature = "web")]
+            {
+                if let Some(window) = web_sys::window() {
+                    if let Ok(Some(storage)) = window.local_storage() {
+                        let _ = storage.remove_item("ralph_new_session_draft");
+                    }
+                }
+            }
+            // Navigate to session page
+            let draft = draft_signal();
+            if let Some(id) = draft.session_id.clone() {
+                let nav = navigator();
+                nav.push(format!("/{}", id).as_str());
+            }
         }
     };
 
-    let on_prd_generated = move |prd_markdown: String| {
-        // Store the generated PRD markdown and switch to paste mode for preview
-        generated_prd_markdown.set(Some(prd_markdown));
-        prd_mode.set(PrdMode::Paste);
+    let on_prd_generated = {
+        let mut draft_signal = draft;
+        move |prd_markdown: String| {
+            // Store the generated PRD markdown and switch to paste mode for preview
+            draft_signal.write().generated_prd_markdown = Some(prd_markdown);
+            draft_signal.write().prd_mode = PrdMode::Paste;
+        }
     };
 
     rsx! {
@@ -104,15 +230,15 @@ pub fn RalphNewSession() -> Element {
             h1 { "Create New Ralph Session" }
 
             div { class: "setup-steps",
-                div { class: if matches!(step(), SetupStep::Config) { "step active" } else { "step" },
+                div { class: if matches!(draft().step, SetupStep::Config) { "step active" } else { "step" },
                     "1. Configure Session"
                 }
-                div { class: if matches!(step(), SetupStep::Prd) { "step active" } else { "step" },
+                div { class: if matches!(draft().step, SetupStep::Prd) { "step active" } else { "step" },
                     "2. Set PRD"
                 }
             }
 
-            if matches!(step(), SetupStep::Config) {
+            if matches!(draft().step, SetupStep::Config) {
                 div {
                     class: "session-form",
 
@@ -121,7 +247,9 @@ pub fn RalphNewSession() -> Element {
                     FilePicker {
                         value: project_path_input,
                         on_select: move |path: String| {
-                            locked_project_path.set(Some(path));
+                            project_path_input.set(path.clone());
+                            draft.write().project_path_input = path.clone();
+                            draft.write().locked_project_path = Some(path);
                         },
                     }
                     p { class: "form-help", "Browse and select your project's git repository directory" }
@@ -132,8 +260,8 @@ pub fn RalphNewSession() -> Element {
                             label { "for": "prd-model", "PRD Model" }
                             select {
                                 id: "prd-model",
-                                value: "{prd_model}",
-                                onchange: move |e| prd_model.set(e.value()),
+                                value: "{draft().prd_model}",
+                                onchange: move |e| draft.write().prd_model = e.value(),
                                 option { value: "auto", "Auto (cursor-agent picks best model)" }
                                 option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
                                 option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
@@ -147,8 +275,8 @@ pub fn RalphNewSession() -> Element {
                             label { "for": "execution-model", "Execution Model" }
                             select {
                                 id: "execution-model",
-                                value: "{execution_model}",
-                                onchange: move |e| execution_model.set(e.value()),
+                                value: "{draft().execution_model}",
+                                onchange: move |e| draft.write().execution_model = e.value(),
                                 option { value: "auto", "Auto (cursor-agent picks best model)" }
                                 option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
                                 option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
@@ -165,10 +293,10 @@ pub fn RalphNewSession() -> Element {
                         input {
                             id: "max-iterations",
                             r#type: "number",
-                            value: "{max_iterations}",
+                            value: "{draft().max_iterations}",
                             oninput: move |e| {
                                 if let Ok(val) = e.value().parse::<u32>() {
-                                    max_iterations.set(val);
+                                    draft.write().max_iterations = val;
                                 }
                             },
                             min: "1",
@@ -181,10 +309,10 @@ pub fn RalphNewSession() -> Element {
                         input {
                             id: "warn-threshold",
                             r#type: "number",
-                            value: "{warn_threshold}",
+                            value: "{draft().warn_threshold}",
                             oninput: move |e| {
                                 if let Ok(val) = e.value().parse::<u32>() {
-                                    warn_threshold.set(val);
+                                    draft.write().warn_threshold = val;
                                 }
                             },
                             step: "1000",
@@ -196,10 +324,10 @@ pub fn RalphNewSession() -> Element {
                         input {
                             id: "rotate-threshold",
                             r#type: "number",
-                            value: "{rotate_threshold}",
+                            value: "{draft().rotate_threshold}",
                             oninput: move |e| {
                                 if let Ok(val) = e.value().parse::<u32>() {
-                                    rotate_threshold.set(val);
+                                    draft.write().rotate_threshold = val;
                                 }
                             },
                             step: "1000",
@@ -212,8 +340,8 @@ pub fn RalphNewSession() -> Element {
                     input {
                         id: "branch-name",
                         r#type: "text",
-                        value: "{branch_name}",
-                        oninput: move |e| branch_name.set(e.value()),
+                        value: "{draft().branch_name}",
+                        oninput: move |e| draft.write().branch_name = e.value(),
                         placeholder: "ralph/my-feature",
                     }
                     p { class: "form-help", "Leave empty to work on current branch" }
@@ -223,8 +351,8 @@ pub fn RalphNewSession() -> Element {
                     label { class: "checkbox-label",
                         input {
                             r#type: "checkbox",
-                            checked: open_pr(),
-                            onchange: move |e| open_pr.set(e.checked()),
+                            checked: draft().open_pr,
+                            onchange: move |e| draft.write().open_pr = e.checked(),
                         }
                         " Open PR when complete"
                     }
@@ -254,8 +382,8 @@ pub fn RalphNewSession() -> Element {
                 }
             }
 
-            if matches!(step(), SetupStep::Prd) {
-                if let Some(id) = session_id() {
+            if matches!(draft().step, SetupStep::Prd) {
+                if let Some(id) = draft().session_id.clone() {
                     div { class: "prd-step",
                         h2 { "Set Product Requirements Document" }
                         p {
@@ -266,18 +394,18 @@ pub fn RalphNewSession() -> Element {
                         // Mode selector tabs
                         div { class: "prd-mode-selector",
                             button {
-                                class: if matches!(prd_mode(), PrdMode::Conversation) { "prd-mode-btn active" } else { "prd-mode-btn" },
-                                onclick: move |_| prd_mode.set(PrdMode::Conversation),
+                                class: if matches!(draft().prd_mode, PrdMode::Conversation) { "prd-mode-btn active" } else { "prd-mode-btn" },
+                                onclick: move |_| draft.write().prd_mode = PrdMode::Conversation,
                                 "Conversation"
                             }
                             button {
-                                class: if matches!(prd_mode(), PrdMode::Paste) { "prd-mode-btn active" } else { "prd-mode-btn" },
-                                onclick: move |_| prd_mode.set(PrdMode::Paste),
+                                class: if matches!(draft().prd_mode, PrdMode::Paste) { "prd-mode-btn active" } else { "prd-mode-btn" },
+                                onclick: move |_| draft.write().prd_mode = PrdMode::Paste,
                                 "Paste Markdown"
                             }
                         }
 
-                        match prd_mode() {
+                        match draft().prd_mode {
                             PrdMode::Conversation => rsx! {
                                 PrdConversation {
                                     session_id: id.clone(),
@@ -288,14 +416,14 @@ pub fn RalphNewSession() -> Element {
                                 PrdEditor {
                                     session_id: id.clone(),
                                     on_prd_set: on_prd_set,
-                                    initial_markdown: generated_prd_markdown()
+                                    initial_markdown: draft().generated_prd_markdown.clone()
                                 }
                             }
                         }
 
                         div { class: "step-actions",
                             button {
-                                onclick: move |_| step.set(SetupStep::Config),
+                                onclick: move |_| draft.write().step = SetupStep::Config,
                                 class: "btn btn-secondary",
                                 "Back"
                             }
@@ -307,14 +435,32 @@ pub fn RalphNewSession() -> Element {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum SetupStep {
+/// Draft state for the new session form, serializable for localStorage persistence.
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct NewSessionDraft {
+    pub project_path_input: String,
+    pub locked_project_path: Option<String>,
+    pub prd_model: String,
+    pub execution_model: String,
+    pub max_iterations: u32,
+    pub warn_threshold: u32,
+    pub rotate_threshold: u32,
+    pub branch_name: String,
+    pub open_pr: bool,
+    pub session_id: Option<String>,
+    pub step: SetupStep,
+    pub prd_mode: PrdMode,
+    pub generated_prd_markdown: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum SetupStep {
     Config,
     Prd,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum PrdMode {
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum PrdMode {
     Conversation,
     Paste,
 }

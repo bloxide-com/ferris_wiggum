@@ -5350,6 +5350,8 @@ dependencies = [
  "cfg-if",
  "once_cell",
  "rustversion",
+ "serde",
+ "serde_json",
  "wasm-bindgen-macro",
  "wasm-bindgen-shared",
 ]
@@ -5421,7 +5423,10 @@ dependencies = [
  "dioxus",
  "gloo-timers",
  "ralph",
+ "serde",
+ "serde_json",
  "ui",
+ "wasm-bindgen",
  "web-sys",
 ]
 

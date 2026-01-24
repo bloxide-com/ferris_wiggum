@@ -9,7 +9,10 @@ ui = { workspace = true, features = ["web"] }
 api = { workspace = true }
 ralph = { workspace = true }
 gloo-timers = { version = "0.3", features = ["futures"], optional = true }
-web-sys = { version = "0.3", features = ["Window", "Storage", "StorageEvent"] }
+web-sys = { version = "0.3", features = ["Window", "Storage", "StorageEvent", "Document", "VisibilityState"] }
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [features]
 default = []

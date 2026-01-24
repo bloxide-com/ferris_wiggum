@@ -11,7 +11,7 @@ pub fn PrdConversation(session_id: String, on_prd_generated: EventHandler<String
     let mut generated_prd = use_signal(|| None::<String>);
     let mut conversation_started = use_signal(|| false);
 
-    // Start conversation on mount
+    // Restore or start conversation on mount
     use_effect(move || {
         if !conversation_started() {
             conversation_started.set(true);
@@ -20,9 +20,10 @@ pub fn PrdConversation(session_id: String, on_prd_generated: EventHandler<String
                 loading.set(true);
                 error.set(None);
 
-                match api::ralph::start_prd_conversation(session_id).await {
-                    Ok(conv) => {
-                        // Filter out system messages for display
+                // First, try to get existing conversation
+                match api::ralph::get_prd_conversation(session_id.clone()).await {
+                    Ok(Some(conv)) => {
+                        // Restore existing conversation
                         let display_messages: Vec<_> = conv
                             .messages
                             .into_iter()
@@ -32,12 +33,34 @@ pub fn PrdConversation(session_id: String, on_prd_generated: EventHandler<String
                         if let Some(prd) = conv.generated_prd {
                             generated_prd.set(Some(prd));
                         }
+                        loading.set(false);
+                    }
+                    Ok(None) => {
+                        // No existing conversation, start a new one
+                        match api::ralph::start_prd_conversation(session_id).await {
+                            Ok(conv) => {
+                                // Filter out system messages for display
+                                let display_messages: Vec<_> = conv
+                                    .messages
+                                    .into_iter()
+                                    .filter(|m| !matches!(m.role, MessageRole::System))
+                                    .collect();
+                                messages.set(display_messages);
+                                if let Some(prd) = conv.generated_prd {
+                                    generated_prd.set(Some(prd));
+                                }
+                            }
+                            Err(e) => {
+                                error.set(Some(format!("Failed to start conversation: {:?}", e)));
+                            }
+                        }
+                        loading.set(false);
                     }
                     Err(e) => {
-                        error.set(Some(format!("Failed to start conversation: {:?}", e)));
+                        error.set(Some(format!("Failed to get conversation: {:?}", e)));
+                        loading.set(false);
                     }
                 }
-                loading.set(false);
             });
         }
     });
