@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use ralph::{Prd, SessionConfig};
+use serde::{Deserialize, Serialize};
 use ui::ralph::{FilePicker, PrdConversation, PrdEditor};
 
 #[component]
@@ -307,14 +308,32 @@ pub fn RalphNewSession() -> Element {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum SetupStep {
+/// Draft state for the new session form, serializable for localStorage persistence.
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct NewSessionDraft {
+    pub project_path_input: String,
+    pub locked_project_path: Option<String>,
+    pub prd_model: String,
+    pub execution_model: String,
+    pub max_iterations: u32,
+    pub warn_threshold: u32,
+    pub rotate_threshold: u32,
+    pub branch_name: String,
+    pub open_pr: bool,
+    pub session_id: Option<String>,
+    pub step: SetupStep,
+    pub prd_mode: PrdMode,
+    pub generated_prd_markdown: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum SetupStep {
     Config,
     Prd,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum PrdMode {
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum PrdMode {
     Conversation,
     Paste,
 }
