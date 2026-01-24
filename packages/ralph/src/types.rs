@@ -272,3 +272,32 @@ impl From<std::io::Error> for RalphError {
         RalphError::Io(e.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_config_has_separate_models() {
+        let config = SessionConfig {
+            prd_model: "sonnet-4.5-thinking".to_string(),
+            execution_model: "opus-4.5-thinking".to_string(),
+            max_iterations: 20,
+            warn_threshold: 70_000,
+            rotate_threshold: 80_000,
+            branch_name: None,
+            open_pr: false,
+        };
+
+        assert_eq!(config.prd_model, "sonnet-4.5-thinking");
+        assert_eq!(config.execution_model, "opus-4.5-thinking");
+        assert_ne!(config.prd_model, config.execution_model);
+    }
+
+    #[test]
+    fn test_session_config_default() {
+        let config = SessionConfig::default();
+        assert_eq!(config.prd_model, "opus-4.5-thinking");
+        assert_eq!(config.execution_model, "opus-4.5-thinking");
+    }
+}

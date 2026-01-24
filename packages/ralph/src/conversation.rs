@@ -135,10 +135,11 @@ impl PrdConversationManager {
         // Build the prompt from conversation history
         let prompt = self.build_prompt(conversation);
         
-        tracing::info!("Generating PRD conversation response with model {}", model);
+        tracing::info!("Generating PRD conversation response with model {} in {}", model, root_path);
         tracing::debug!("Prompt length: {} chars", prompt.len());
         
-        // Use cursor-agent in conversation mode
+        // Use cursor-agent in conversation mode, set working directory to root_path
+        // so cursor-agent can analyze the codebase when creating requirements
         let mut child = Command::new("cursor-agent")
             .arg("--model")
             .arg(model)
@@ -263,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_extract_prd_from_markdown_block() {
-        let manager = PrdConversationManager::new("test-model".to_string());
+        let manager = PrdConversationManager::new();
         
         let response = r#"Here's the PRD based on our discussion:
 
@@ -299,7 +300,7 @@ Let me know if you'd like any changes!"#;
 
     #[test]
     fn test_extract_prd_direct() {
-        let manager = PrdConversationManager::new("test-model".to_string());
+        let manager = PrdConversationManager::new();
         
         let response = r#"# My Feature
 
@@ -317,7 +318,7 @@ Users need this feature.
 
     #[test]
     fn test_no_prd_in_response() {
-        let manager = PrdConversationManager::new("test-model".to_string());
+        let manager = PrdConversationManager::new();
         
         let response = "What problem are you trying to solve with this feature?";
 

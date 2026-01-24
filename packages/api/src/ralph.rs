@@ -312,12 +312,14 @@ pub async fn send_prd_message(
         .get_session(&session_id)
         .await
         .map_err(|e| {
-            tracing::error!("Session not found for send_prd_message: {}", session_id);
+            tracing::error!("Session not found for PRD message: {}", session_id);
             ServerFnError::new(e.to_string())
         })?;
     
     let model = session.config.prd_model.clone();
     let root_path = session.project_path.clone();
+    tracing::debug!("Using PRD model '{}' from session config", model);
+    tracing::debug!("Using root_path '{}' for PRD generation", root_path);
     
     CONVERSATION_MANAGER
         .send_message(&session_id, message, model, root_path)
