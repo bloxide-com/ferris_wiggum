@@ -289,5 +289,213 @@ pub async fn add_guardrail(
         })
 }
 
+// File System Browsing
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub path: String,
+    pub is_directory: bool,
+    pub is_protected: bool,
+    pub is_git_repository: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct DirectoryListing {
+    pub current_path: String,
+    pub entries: Vec<DirectoryEntry>,
+}
+
+#[server]
+pub async fn list_directory(path: Option<String>) -> Result<DirectoryListing, ServerFnError> {
+    use std::path::Path;
+    
+    let target_path = if let Some(p) = path {
+        Path::new(&p).to_path_buf()
+    } else {
+        // Default to home directory
+        dirs::home_dir().ok_or_else(|| {
+            ServerFnError::new("Could not determine home directory".to_string())
+        })?
+    };
+
+    // Validate that the path exists and is a directory
+    if !target_path.exists() {
+        return Err(ServerFnError::new(format!("Path does not exist: {}", target_path.display())));
+    }
+
+    if !target_path.is_dir() {
+        return Err(ServerFnError::new(format!("Path is not a directory: {}", target_path.display())));
+    }
+
+    // Read directory entries
+    let mut entries = Vec::new();
+    
+    match std::fs::read_dir(&target_path) {
+        Ok(dir_entries) => {
+            for entry_result in dir_entries {
+                match entry_result {
+                    Ok(entry) => {
+                        let entry_path = entry.path();
+                        let name = entry_path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("")
+                            .to_string();
+                        
+                        // Skip hidden files/directories (starting with .)
+                        if name.starts_with('.') {
+                            continue;
+                        }
+
+                        let is_directory = entry_path.is_dir();
+                        let full_path = entry_path.to_string_lossy().to_string();
+
+                        // Check if directory is protected (permission denied)
+                        let is_protected = if is_directory {
+                            // Try to read the directory to check permissions
+                            std::fs::read_dir(&entry_path).is_err()
+                        } else {
+                            false
+                        };
+
+                        // Check if directory contains a Git repository (.git folder)
+                        let is_git_repository = if is_directory && !is_protected {
+                            let git_path = entry_path.join(".git");
+                            git_path.exists() && git_path.is_dir()
+                        } else {
+                            false
+                        };
+
+                        entries.push(DirectoryEntry {
+                            name,
+                            path: full_path,
+                            is_directory,
+                            is_protected,
+                            is_git_repository,
+                        });
+                    }
+                    Err(e) => {
+                        tracing::warn!("Error reading directory entry: {}", e);
+                        // Continue with other entries
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            // Check if this is a permission error
+            let error_kind = e.kind();
+            let error_msg = if error_kind == std::io::ErrorKind::PermissionDenied {
+                format!("Permission denied: You don't have access to read this directory ({})", target_path.display())
+            } else {
+                format!("Error reading directory: {}", e)
+            };
+            return Err(ServerFnError::new(error_msg));
+        }
+    }
+
+    // Sort entries: directories first, then files, both alphabetically
+    entries.sort_by(|a, b| {
+        match (a.is_directory, b.is_directory) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        }
+    });
+
+    Ok(DirectoryListing {
+        current_path: target_path.to_string_lossy().to_string(),
+        entries,
+    })
+}
+
+#[server]
+pub async fn get_parent_directory(path: String) -> Result<Option<String>, ServerFnError> {
+    use std::path::Path;
+    
+    let path_buf = Path::new(&path);
+    
+    if let Some(parent) = path_buf.parent() {
+        Ok(Some(parent.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct CommonDirectory {
+    pub name: String,
+    pub path: String,
+    pub icon: String,
+}
+
+#[server]
+pub async fn get_common_directories() -> Result<Vec<CommonDirectory>, ServerFnError> {
+    let mut directories = Vec::new();
+
+    // Home directory
+    if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy().to_string();
+        directories.push(CommonDirectory {
+            name: "Home".to_string(),
+            path: home_str.clone(),
+            icon: "🏠".to_string(),
+        });
+
+        // Documents directory
+        if let Some(documents) = dirs::document_dir() {
+            directories.push(CommonDirectory {
+                name: "Documents".to_string(),
+                path: documents.to_string_lossy().to_string(),
+                icon: "📄".to_string(),
+            });
+        }
+
+        // Desktop directory
+        if let Some(desktop) = dirs::desktop_dir() {
+            directories.push(CommonDirectory {
+                name: "Desktop".to_string(),
+                path: desktop.to_string_lossy().to_string(),
+                icon: "🖥️".to_string(),
+            });
+        }
+
+        // Downloads directory
+        if let Some(downloads) = dirs::download_dir() {
+            directories.push(CommonDirectory {
+                name: "Downloads".to_string(),
+                path: downloads.to_string_lossy().to_string(),
+                icon: "⬇️".to_string(),
+            });
+        }
+
+        // Common project folders (check if they exist)
+        let project_folders = vec![
+            ("Projects", "projects"),
+            ("Projects", "Projects"),
+            ("Code", "code"),
+            ("Code", "Code"),
+            ("Workspace", "workspace"),
+            ("Workspace", "Workspace"),
+            ("Dev", "dev"),
+            ("Dev", "Dev"),
+        ];
+
+        for (display_name, folder_name) in project_folders {
+            let project_path = home.join(folder_name);
+            if project_path.exists() && project_path.is_dir() {
+                directories.push(CommonDirectory {
+                    name: display_name.to_string(),
+                    path: project_path.to_string_lossy().to_string(),
+                    icon: "💻".to_string(),
+                });
+                break; // Only add one project folder to avoid duplicates
+            }
+        }
+    }
+
+    Ok(directories)
+}
+
 // Activity Streaming
 // Note: SSE streaming will be implemented in the web package using use_resource

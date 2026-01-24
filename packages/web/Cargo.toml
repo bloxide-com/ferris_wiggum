@@ -5,9 +5,10 @@ edition = "2021"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router", "fullstack"] }
-ui = { workspace = true }
+ui = { workspace = true, features = ["web"] }
 api = { workspace = true }
 ralph = { workspace = true }
+web-sys = { version = "0.3", features = ["Window", "Storage", "StorageEvent"] }
 
 [features]
 default = []
