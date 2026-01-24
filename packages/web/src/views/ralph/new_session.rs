@@ -3,6 +3,11 @@ use ralph::{Prd, SessionConfig};
 use serde::{Deserialize, Serialize};
 use ui::ralph::{FilePicker, PrdConversation, PrdEditor};
 
+#[cfg(feature = "web")]
+use web_sys::{window, Event, EventTarget, VisibilityState};
+#[cfg(feature = "web")]
+use wasm_bindgen::JsCast;
+
 use crate::use_persisted_signal;
 
 #[component]
@@ -52,6 +57,78 @@ pub fn RalphNewSession() -> Element {
             draft.write().project_path_input = input_value;
         }
     });
+
+    // Listen for visibility changes to restore state when tab becomes visible
+    #[cfg(feature = "web")]
+    {
+        // Track visibility state with a signal
+        let visibility_state = use_signal(|| {
+            if let Some(window) = window() {
+                if let Some(document) = window.document() {
+                    document.visibility_state()
+                } else {
+                    VisibilityState::Visible
+                }
+            } else {
+                VisibilityState::Visible
+            }
+        });
+
+        // Set up visibility change listener
+        use_effect(move || {
+            let window = window();
+            let Some(window) = window else {
+                return;
+            };
+            let Some(document) = window.document() else {
+                return;
+            };
+            let event_target: &EventTarget = document.as_ref();
+
+            let mut visibility_signal = visibility_state;
+            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |_e: Event| {
+                let Some(window) = web_sys::window() else {
+                    return;
+                };
+                let Some(document) = window.document() else {
+                    return;
+                };
+                
+                // Update visibility state signal when it changes
+                visibility_signal.set(document.visibility_state());
+            }) as Box<dyn FnMut(Event)>);
+
+            let _ = event_target
+                .add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref());
+
+            // Keep the closure alive for the lifetime of the component
+            closure.forget();
+        });
+
+        // Re-read from localStorage when visibility becomes "visible"
+        use_effect(move || {
+            // Read visibility state to track it
+            let is_visible = visibility_state() == VisibilityState::Visible;
+            
+            if is_visible {
+                // Re-read from localStorage and update signal if needed
+                let window = window();
+                if let Some(window) = window {
+                    if let Ok(Some(storage)) = window.local_storage() {
+                        if let Ok(Some(stored)) = storage.get_item("ralph_new_session_draft") {
+                            if let Ok(deserialized) = serde_json::from_str::<NewSessionDraft>(&stored) {
+                                let current = draft();
+                                // Only update if the stored value differs
+                                if deserialized != current {
+                                    draft.set(deserialized);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     let can_create_session = use_memo(move || {
         let draft = draft();
