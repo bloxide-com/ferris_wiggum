@@ -24,7 +24,7 @@ pub use git::GitOperations;
 #[cfg(feature = "server")]
 pub use guardrails::GuardrailManager;
 #[cfg(feature = "server")]
-pub use memory::{run_memory_monitor, MemoryMonitor, MemorySnapshot, MemoryStatus};
+pub use memory::{run_memory_monitor, run_health_watchdog, MemoryMonitor, MemorySnapshot, MemoryStatus};
 pub use parser::StreamParser;
 #[cfg(feature = "server")]
 pub use session::SessionManager;

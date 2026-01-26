@@ -121,14 +121,13 @@ impl SessionManager {
         }
 
         // Validate that session has a PRD with stories
-        if session.prd.is_none() {
+        let prd = session.prd.as_ref().ok_or_else(|| {
             tracing::error!("Cannot start session {} without a PRD", id);
-            return Err(RalphError::InvalidState(
+            RalphError::InvalidState(
                 "Cannot start session without a PRD. Please set a PRD first.".to_string(),
-            ));
-        }
+            )
+        })?;
 
-        let prd = session.prd.as_ref().unwrap();
         if prd.stories.is_empty() {
             tracing::error!("Cannot start session {} with empty PRD", id);
             return Err(RalphError::InvalidState(
@@ -252,7 +251,18 @@ impl SessionManager {
         mut session: Session,
         mut shutdown_rx: broadcast::Receiver<()>,
     ) -> Result<(), RalphError> {
+        tracing::info!("=== Starting Ralph loop for session {} ===", session.id);
+        tracing::info!("Max iterations: {}", session.config.max_iterations);
+        tracing::info!("Execution model: {}", session.config.execution_model);
+        
         while session.current_iteration < session.config.max_iterations {
+            tracing::info!(
+                "--- Iteration {}/{} starting for session {} ---",
+                session.current_iteration + 1,
+                session.config.max_iterations,
+                session.id
+            );
+            
             // Check for shutdown signal (non-blocking)
             match shutdown_rx.try_recv() {
                 Ok(()) => {
@@ -286,11 +296,14 @@ impl SessionManager {
 
             // Check if paused or stopped
             let current = self.get_session(&session.id).await?;
+            tracing::debug!("Current session status: {:?}", current.status);
             if matches!(current.status, SessionStatus::Paused | SessionStatus::Idle) {
+                tracing::info!("Session {} is paused/idle, exiting loop", session.id);
                 return Ok(());
             }
 
             // Pick next story
+            tracing::debug!("Selecting next story to work on");
             let story_id = session.prd.as_ref().and_then(|prd| {
                 prd.stories
                     .iter()
@@ -300,6 +313,7 @@ impl SessionManager {
             });
 
             let Some(story_id) = story_id else {
+                tracing::info!("🎉 All stories completed for session {}!", session.id);
                 session.status = SessionStatus::Complete;
                 session.updated_at = SystemTime::now();
                 self.update_session(session.clone()).await?;
@@ -318,24 +332,31 @@ impl SessionManager {
                 return Ok(());
             };
 
-            tracing::info!("Session {} working on story: {}", session.id, story_id);
+            tracing::info!("📋 Session {} working on story: {}", session.id, story_id);
+            
+            // Log story details
+            if let Some(prd) = &session.prd {
+                if let Some(story) = prd.stories.iter().find(|s| s.id == story_id) {
+                    tracing::info!("Story title: {}", story.title);
+                    tracing::info!("Story description: {}", story.description);
+                    tracing::info!("Acceptance criteria count: {}", story.acceptance_criteria.len());
+                }
+            }
+            
             session.status = SessionStatus::Running {
                 story_id: story_id.clone(),
             };
             session.updated_at = SystemTime::now();
             self.update_session(session.clone()).await?;
 
-            // Run iteration (placeholder - actual implementation in cursor.rs)
-            tracing::debug!(
-                "Running iteration for session {}, story {}",
-                session.id,
-                story_id
-            );
+            // Run iteration
+            tracing::info!("▶️  Starting iteration for session {}, story {}", session.id, story_id);
             let result = self.run_iteration(&mut session).await?;
+            tracing::info!("✓ Iteration completed for session {}, story {}", session.id, story_id);
 
             match result {
                 IterationResult::StoryComplete => {
-                    tracing::info!("Story {} completed for session {}", story_id, session.id);
+                    tracing::info!("✅ Story {} completed for session {}", story_id, session.id);
                     // Mark story as complete in PRD
                     if let Some(prd) = &mut session.prd {
                         if let Some(s) = prd.stories.iter_mut().find(|s| s.id == story_id) {
@@ -360,6 +381,7 @@ impl SessionManager {
                     self.broadcast_activity(&session.id, entry).await;
                 }
                 IterationResult::Rotate => {
+                    tracing::info!("🔄 Rotating iteration for session {} due to token threshold", session.id);
                     session.current_iteration += 1;
                     session.token_usage = TokenUsage::default();
                     session.updated_at = SystemTime::now();
@@ -374,6 +396,7 @@ impl SessionManager {
                     self.broadcast_activity(&session.id, entry).await;
                 }
                 IterationResult::Gutter(reason) => {
+                    tracing::error!("🚨 Session {} entered gutter state: {}", session.id, reason);
                     session.status = SessionStatus::Gutter {
                         reason: reason.clone(),
                     };

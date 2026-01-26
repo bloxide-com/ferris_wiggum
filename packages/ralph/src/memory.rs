@@ -102,16 +102,67 @@ pub async fn run_memory_monitor(
     interval: Duration,
     mut shutdown_rx: broadcast::Receiver<()>,
 ) {
+    tracing::info!("🔍 Memory monitor started (interval: {:?})", interval);
     let mut monitor = MemoryMonitor::new(80.0, 95.0);
     let mut ticker = tokio::time::interval(interval);
+    let mut check_count = 0;
 
     loop {
         tokio::select! {
             _ = ticker.tick() => {
+                check_count += 1;
+                tracing::debug!("Memory check #{}", check_count);
                 monitor.check_and_log();
             }
             _ = shutdown_rx.recv() => {
-                tracing::info!("Memory monitor shutting down");
+                tracing::info!("Memory monitor shutting down (performed {} checks)", check_count);
+                break;
+            }
+        }
+    }
+}
+
+pub async fn run_health_watchdog(
+    interval: Duration,
+    mut shutdown_rx: broadcast::Receiver<()>,
+) {
+    let mut ticker = tokio::time::interval(interval);
+    let pid = std::process::id();
+    let mut heartbeat_count = 0;
+    
+    tracing::info!("❤️  Health watchdog started (PID: {}, interval: {:?})", pid, interval);
+
+    loop {
+        tokio::select! {
+            _ = ticker.tick() => {
+                heartbeat_count += 1;
+                // Check if we're still alive and log heartbeat
+                tracing::info!("❤️  Health watchdog heartbeat #{} (PID: {})", heartbeat_count, pid);
+                
+                // Check file descriptor count (Unix only)
+                #[cfg(unix)]
+                {
+                    if let Ok(fd_dir) = std::fs::read_dir(format!("/proc/{}/fd", pid)) {
+                        let fd_count = fd_dir.count();
+                        if fd_count > 900 {
+                            tracing::error!("CRITICAL: File descriptor count very high: {}/1024", fd_count);
+                        } else if fd_count > 700 {
+                            tracing::warn!("WARNING: File descriptor count high: {}/1024", fd_count);
+                        } else {
+                            tracing::debug!("File descriptor count: {}", fd_count);
+                        }
+                    }
+                }
+                
+                // Check tokio runtime metrics if available
+                let handle = tokio::runtime::Handle::current();
+                let metrics = handle.metrics();
+                let num_workers = metrics.num_workers();
+                
+                tracing::debug!("Tokio runtime: {} workers", num_workers);
+            }
+            _ = shutdown_rx.recv() => {
+                tracing::info!("Health watchdog shutting down ({} heartbeats)", heartbeat_count);
                 break;
             }
         }
