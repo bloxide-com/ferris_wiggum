@@ -52,6 +52,12 @@ body {
     line-height: 1.45;
 }
 
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+}
+
 a {
     color: var(--primary);
     text-decoration: none;

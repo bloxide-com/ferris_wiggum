@@ -142,3 +142,19 @@
 - Browser verification can be done with headless Chrome: `google-chrome-stable --headless=new --window-size=390,900 --screenshot=path.png http://localhost:5080/new`
 - The `--bp-mobile` CSS variable (480px) should be used consistently for mobile breakpoints across all components
 ---
+
+## 2026-01-26 - US-001
+- Added media query to reduce body padding from 24px to 12px at viewport width ≤ 480px
+- Media query placed in `packages/web/assets/main.css` after the body styles
+- Uses 480px breakpoint (matching `--bp-mobile` variable) for consistency
+- Verified in browser at 390px width using headless Chrome screenshot
+- Files changed:
+  - `packages/web/assets/main.css`
+  - `prd.json`
+
+**Learnings for future iterations:**
+- Body padding is defined in `packages/web/assets/main.css` at line 51
+- Media queries for mobile should use the 480px breakpoint to match the `--bp-mobile` CSS variable
+- CSS-only changes don't require Rust typechecking, but `cargo check -p web --features web` still validates the overall build
+- Browser verification with headless Chrome confirms the padding reduction works correctly at mobile viewport widths
+---

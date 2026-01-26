@@ -160,6 +160,18 @@ impl PrdConversationManager {
             RalphError::CursorAgent("Failed to capture stdout".into())
         })?;
 
+        // Drain stderr to prevent buffer deadlock
+        if let Some(stderr) = child.stderr.take() {
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr).lines();
+                while let Ok(Some(line)) = reader.next_line().await {
+                    if !line.is_empty() {
+                        tracing::warn!("cursor-agent stderr: {}", line);
+                    }
+                }
+            });
+        }
+
         let mut reader = BufReader::new(stdout);
         let mut response = String::new();
 
@@ -175,8 +187,17 @@ impl PrdConversationManager {
             line.clear();
         }
 
-        // Wait for process to complete
-        let status = child.wait().await.map_err(|e| {
+        // Wait for process to complete with timeout
+        let status = tokio::time::timeout(
+            std::time::Duration::from_secs(300), // 5 minute timeout for PRD generation
+            child.wait()
+        )
+        .await
+        .map_err(|_| {
+            tracing::error!("cursor-agent timed out after 5 minutes");
+            RalphError::CursorAgent("cursor-agent timed out after 5 minutes".into())
+        })?
+        .map_err(|e| {
             tracing::error!("Failed to wait for cursor-agent: {}", e);
             RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
         })?;

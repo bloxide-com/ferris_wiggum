@@ -26,6 +26,24 @@ static BACKGROUND_TASKS_STARTED: OnceLock<()> = OnceLock::new();
 #[cfg(feature = "server")]
 pub fn init_background_tasks() {
     BACKGROUND_TASKS_STARTED.get_or_init(|| {
+        // Install global panic hook to log panics with backtraces
+        std::panic::set_hook(Box::new(|panic_info| {
+            let backtrace = std::backtrace::Backtrace::capture();
+            tracing::error!("PANIC: {}\nBacktrace:\n{:?}", panic_info, backtrace);
+            eprintln!("PANIC: {}\nBacktrace:\n{:?}", panic_info, backtrace);
+        }));
+
+        // Log startup diagnostics
+        tracing::info!("=== Server Starting ===");
+        tracing::info!("Process ID: {}", std::process::id());
+        tracing::info!("Rust version: {}", env!("CARGO_PKG_RUST_VERSION", "unknown"));
+        tracing::info!("Package version: {}", env!("CARGO_PKG_VERSION"));
+        if let Ok(hostname) = std::env::var("HOSTNAME") {
+            tracing::info!("Hostname: {}", hostname);
+        }
+        tracing::info!("Background tasks initialized");
+        tracing::info!("======================");
+
         // Memory monitor
         let shutdown_rx = SESSION_MANAGER.subscribe_shutdown();
         tokio::spawn(run_memory_monitor(Duration::from_secs(30), shutdown_rx));
