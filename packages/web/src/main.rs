@@ -34,6 +34,7 @@ fn App() -> Element {
 
     rsx! {
         // Global app resources
+        document::Meta { name: "viewport", content: "width=device-width, initial-scale=1" }
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         document::Link { rel: "stylesheet", href: RALPH_CSS }
