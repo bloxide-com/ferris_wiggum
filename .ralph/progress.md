@@ -124,3 +124,21 @@
 - These breakpoints provide consistent responsive thresholds across all components (mobile: 480px, tablet: 768px)
 - Typecheck passes with `cargo check -p web --features web` validates the implementation
 ---
+
+## 2026-01-26 - US-003
+- Updated `.form-row` media query to use 480px breakpoint (mobile) instead of 960px
+- Form rows now stack vertically (single-column) below 480px width
+- Form inputs already had `width: 100%` so they're full-width
+- Labels have adequate spacing (`margin-bottom: 0.4rem`)
+- Verified in browser at 390px width using headless Chrome screenshot
+- Files changed:
+  - `packages/web/assets/styling/ralph.css`
+  - `prd.json`
+
+**Learnings for future iterations:**
+- The existing media query at 960px was for `.ralph-main` layout, not form rows
+- Form rows needed a separate media query at the mobile breakpoint (480px) to stack vertically
+- Form inputs in `ralph.css` already have `width: 100%` so they're automatically full-width on mobile
+- Browser verification can be done with headless Chrome: `google-chrome-stable --headless=new --window-size=390,900 --screenshot=path.png http://localhost:5080/new`
+- The `--bp-mobile` CSS variable (480px) should be used consistently for mobile breakpoints across all components
+---
