@@ -11,6 +11,82 @@ impl GitOperations {
         Self { project_path }
     }
 
+    pub async fn fetch(&self) -> Result<(), RalphError> {
+        self.run_git_command(&["fetch", "--all", "--prune"]).await?;
+        Ok(())
+    }
+
+    pub async fn list_branches(&self) -> Result<Vec<Branch>, RalphError> {
+        // git branch output format:
+        // * main
+        //   feature/foo
+        let output = self.run_git_command(&["branch"]).await?;
+        let mut branches = Vec::new();
+
+        for line in output.lines() {
+            let trimmed = line.trim_end();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            let is_current = trimmed.starts_with('*');
+            let name = trimmed
+                .trim_start_matches('*')
+                .trim_start()
+                .to_string();
+
+            if name.is_empty() {
+                continue;
+            }
+
+            branches.push(Branch {
+                name,
+                is_current,
+                is_remote: false,
+            });
+        }
+
+        Ok(branches)
+    }
+
+    pub async fn list_remote_branches(&self) -> Result<Vec<String>, RalphError> {
+        // Ensure we have up-to-date remotes.
+        self.fetch().await?;
+
+        // git branch -r output format:
+        //   origin/HEAD -> origin/main
+        //   origin/main
+        //   origin/feature/foo
+        let output = self.run_git_command(&["branch", "-r"]).await?;
+        let mut branches = Vec::new();
+
+        for line in output.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            // Skip symbolic ref line: origin/HEAD -> origin/main
+            if trimmed.contains("->") {
+                continue;
+            }
+
+            branches.push(trimmed.to_string());
+        }
+
+        Ok(branches)
+    }
+
+    pub async fn checkout(&self, branch: &str) -> Result<(), RalphError> {
+        self.run_git_command(&["checkout", branch]).await?;
+        Ok(())
+    }
+
+    pub async fn merge(&self, source_branch: &str) -> Result<(), RalphError> {
+        self.run_git_command(&["merge", source_branch]).await?;
+        Ok(())
+    }
+
     pub async fn commit(&self, message: &str) -> Result<(), RalphError> {
         tracing::info!("Committing changes: {}", message);
         // Stage all changes

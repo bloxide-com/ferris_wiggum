@@ -1,5 +1,8 @@
 use dioxus::prelude::*;
-use ralph::{Guardrail, Prd, PrdConversation, Session, SessionConfig};
+use ralph::{Branch, Guardrail, Prd, PrdConversation, Session, SessionConfig};
+
+#[cfg(feature = "server")]
+use ralph::GitOperations;
 
 #[cfg(feature = "server")]
 use ralph::{GuardrailManager, PrdConversationManager, SessionManager};
@@ -80,6 +83,133 @@ pub async fn stop_session(id: String) -> Result<Session, ServerFnError> {
         .stop_session(&id)
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))
+}
+
+// Git Operations
+
+#[server]
+pub async fn get_current_branch(project_path: String) -> Result<String, ServerFnError> {
+    #[cfg(feature = "server")]
+    {
+    let git = GitOperations::new(project_path);
+    git.get_current_branch()
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        let _ = project_path;
+        Err(ServerFnError::new(
+            "Git operations are only available on the server".to_string(),
+        ))
+    }
+}
+
+#[server]
+pub async fn list_branches(project_path: String) -> Result<Vec<Branch>, ServerFnError> {
+    #[cfg(feature = "server")]
+    {
+    let git = GitOperations::new(project_path);
+    git.list_branches()
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        let _ = project_path;
+        Err(ServerFnError::new(
+            "Git operations are only available on the server".to_string(),
+        ))
+    }
+}
+
+#[server]
+pub async fn checkout_branch(project_path: String, branch: String) -> Result<(), ServerFnError> {
+    #[cfg(feature = "server")]
+    {
+    tracing::info!("Checking out branch '{}'", branch);
+    let git = GitOperations::new(project_path);
+    git.checkout(&branch)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        let _ = (project_path, branch);
+        Err(ServerFnError::new(
+            "Git operations are only available on the server".to_string(),
+        ))
+    }
+}
+
+#[server]
+pub async fn merge_branches(project_path: String, source: String) -> Result<(), ServerFnError> {
+    #[cfg(feature = "server")]
+    {
+    tracing::info!("Merging source branch '{}'", source);
+    let git = GitOperations::new(project_path);
+    git.merge(&source)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        let _ = (project_path, source);
+        Err(ServerFnError::new(
+            "Git operations are only available on the server".to_string(),
+        ))
+    }
+}
+
+#[server]
+pub async fn create_pull_request(
+    project_path: String,
+    branch: String,
+    title: String,
+    body: String,
+) -> Result<String, ServerFnError> {
+    #[cfg(feature = "server")]
+    {
+    tracing::info!("Creating PR for branch '{}'", branch);
+    let git = GitOperations::new(project_path);
+    git.create_pr(&branch, &title, &body)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        let _ = (project_path, branch, title, body);
+        Err(ServerFnError::new(
+            "Git operations are only available on the server".to_string(),
+        ))
+    }
+}
+
+#[server]
+pub async fn push_branch(
+    project_path: String,
+    branch: Option<String>,
+) -> Result<(), ServerFnError> {
+    #[cfg(feature = "server")]
+    {
+    let git = GitOperations::new(project_path);
+    git.push(branch.as_deref())
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        let _ = (project_path, branch);
+        Err(ServerFnError::new(
+            "Git operations are only available on the server".to_string(),
+        ))
+    }
 }
 
 // PRD Management

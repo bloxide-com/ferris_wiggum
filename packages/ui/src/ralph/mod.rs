@@ -1,5 +1,7 @@
 mod activity_log;
+mod branch_selector;
 mod file_picker;
+mod git_panel;
 mod guardrails_panel;
 mod prd_conversation;
 mod prd_editor;
@@ -9,7 +11,9 @@ mod story_progress;
 mod token_meter;
 
 pub use activity_log::ActivityLog;
+pub use branch_selector::BranchSelector;
 pub use file_picker::FilePicker;
+pub use git_panel::GitPanel;
 pub use guardrails_panel::GuardrailsPanel;
 pub use prd_conversation::PrdConversation;
 pub use prd_editor::PrdEditor;

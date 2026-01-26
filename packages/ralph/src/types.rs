@@ -36,6 +36,13 @@ pub struct SessionConfig {
     pub open_pr: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Branch {
+    pub name: String,
+    pub is_current: bool,
+    pub is_remote: bool,
+}
+
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
