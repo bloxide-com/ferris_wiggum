@@ -158,3 +158,21 @@
 - CSS-only changes don't require Rust typechecking, but `cargo check -p web --features web` still validates the overall build
 - Browser verification with headless Chrome confirms the padding reduction works correctly at mobile viewport widths
 ---
+
+## 2026-01-26 - US-001
+- Added `--mobile-breakpoint: 640px` CSS variable to `packages/web/assets/main.css`
+- Added mobile-specific spacing variables: `--spacing-mobile-sm: 8px` and `--spacing-mobile-md: 16px`
+- Added `--touch-target-min: 44px` variable for mobile accessibility compliance
+- All variables added to `:root` selector for global availability
+- Typecheck passes with `cargo check -p web --features web`
+- Files changed:
+  - `packages/web/assets/main.css`
+  - `prd.json`
+
+**Learnings for future iterations:**
+- The PRD specifies `--mobile-breakpoint: 640px` which is different from the existing `--bp-mobile: 480px` variable - both serve different purposes (640px for mobile-first design, 480px for small mobile screens)
+- Mobile spacing variables (`--spacing-mobile-sm`, `--spacing-mobile-md`) should be used consistently across mobile components for consistent spacing
+- The `--touch-target-min: 44px` variable follows WCAG accessibility guidelines for minimum touch target size on mobile devices
+- CSS variables in `:root` are globally available and can be referenced in any component stylesheet
+- Typecheck validates the overall build even for CSS-only changes
+---
