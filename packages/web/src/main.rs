@@ -2,6 +2,8 @@ use dioxus::prelude::*;
 
 use ui::Navbar;
 use views::{RalphDashboard, RalphNewSession, RalphSession};
+#[cfg(feature = "server")]
+use api::ralph::init_background_tasks;
 
 mod hooks;
 mod views;
@@ -32,8 +34,12 @@ fn main() {
 fn App() -> Element {
     // Build cool things ✌️
 
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     rsx! {
         // Global app resources
+        document::Meta { name: "viewport", content: "width=device-width, initial-scale=1" }
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         document::Link { rel: "stylesheet", href: RALPH_CSS }

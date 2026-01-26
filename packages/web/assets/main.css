@@ -24,6 +24,13 @@
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
+
+    /* Responsive breakpoints */
+    /* Use these in media queries: @media (max-width: var(--bp-mobile)) { ... } */
+    /* Mobile: screens up to 480px wide */
+    --bp-mobile: 480px;
+    /* Tablet: screens up to 768px wide */
+    --bp-tablet: 768px;
 }
 
 * {

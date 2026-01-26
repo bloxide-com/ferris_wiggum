@@ -1,0 +1,309 @@
+{
+  "project": "Mobile-First UI Optimization",
+  "branch_name": "ralph/test",
+  "description": "The ferris_wiggum app currently has desktop-oriented layouts that don't work well on mobile devices (390px minimum width). Users need full IDE-replacement functionality on their phones, including session creation, PRD editing, git operations, and monitoring running sessions. The current multi-column layouts, fixed-width sidebars, and small touch targets make the app unusable on mobile.",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Add Mobile Viewport Meta Tag",
+      "description": "As a** mobile user I want** the viewport configured correctly So that** the app renders at the proper scale on my device",
+      "acceptance_criteria": [
+        "Add `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">` to the web app's HTML head",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Create Mobile CSS Breakpoint Variables",
+      "description": "As a** developer I want** consistent breakpoint variables defined in CSS So that** all components use the same responsive thresholds",
+      "acceptance_criteria": [
+        "Add CSS custom properties for breakpoints in `main.css`: `--bp-mobile: 480px`, `--bp-tablet: 768px`",
+        "Document breakpoint usage in comments",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Make Session Form Single-Column on Mobile",
+      "description": "As a** mobile user I want** the new session form to stack vertically So that** I can fill out all fields on my 390px screen",
+      "acceptance_criteria": [
+        "`.form-row` becomes single-column (`grid-template-columns: 1fr`) below 480px",
+        "Form inputs are full-width",
+        "Labels have adequate spacing from inputs",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Make File Picker Sidebar Collapsible on Mobile",
+      "description": "As a** mobile user I want** the file picker quick-access sidebar to be collapsible So that** I have more room to browse directories",
+      "acceptance_criteria": [
+        "Below 480px, sidebar is hidden by default",
+        "Add a toggle button to show/hide shortcuts panel",
+        "When visible, sidebar overlays or stacks above the file list",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Improve File Picker Touch Targets",
+      "description": "As a** mobile user I want** larger touch targets in the file picker So that** I can accurately tap directories and buttons",
+      "acceptance_criteria": [
+        "`.file-picker-entry` has minimum height of 48px on mobile",
+        "Navigation buttons (up, home) are at least 44x44px",
+        "Adequate spacing between entries (at least 8px)",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Stack Dashboard Layout on Mobile",
+      "description": "As a** mobile user I want** the session dashboard to be single-column So that** I can scroll through all panels on my phone",
+      "acceptance_criteria": [
+        "`.ralph-main` becomes single-column below 768px",
+        "Sidebar panels (Git, Token Meter, Guardrails) stack below main content",
+        "All panels remain full-width and functional",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create Form-Based PRD Editor for Mobile",
+      "description": "As a** mobile user I want** a form-based PRD editor with labeled fields So that** I can easily enter PRD sections without writing raw markdown",
+      "acceptance_criteria": [
+        "Create `PrdFormEditor` component with separate textareas for: Project Name, Description, each User Story (Title, Description, Acceptance Criteria, Priority)",
+        "Form generates valid PRD markdown on submit",
+        "User can add/remove stories dynamically",
+        "Each textarea has a clear label",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add Story Entry Sub-Form Component",
+      "description": "As a** mobile user I want** each user story to have its own expandable/collapsible form section So that** I can focus on one story at a time",
+      "acceptance_criteria": [
+        "Create `StoryFormEntry` component with collapsible header showing story title/ID",
+        "Expanded state shows textareas for: Title, Description (As a/I want/So that), Acceptance Criteria (one per line), Priority dropdown",
+        "Stories can be reordered (move up/down buttons)",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Make PRD Conversation Input Mobile-Friendly",
+      "description": "As a** mobile user I want** a comfortable chat input area So that** I can easily type messages to the PRD agent",
+      "acceptance_criteria": [
+        "`.conversation-input` uses column layout on mobile (textarea above button)",
+        "Send button is full-width on mobile",
+        "Textarea has comfortable height (at least 80px)",
+        "Input area is sticky at bottom of viewport on mobile",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Optimize Message Bubbles for Mobile",
+      "description": "As a** mobile user I want** readable chat messages So that** I can follow the PRD conversation",
+      "acceptance_criteria": [
+        "`.message-bubble` max-width is 100% on mobile (no horizontal scroll)",
+        "Font size is at least 16px (prevents iOS zoom on input focus)",
+        "Code blocks in messages scroll horizontally within their container",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Make Session Header Responsive",
+      "description": "As a** mobile user I want** to see session info and controls clearly So that** I can manage my session",
+      "acceptance_criteria": [
+        "`.session-header` stacks vertically on mobile",
+        "Session controls wrap to new line below title",
+        "Stats pills wrap naturally and remain readable",
+        "Project path truncates with ellipsis if too long",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Create Mobile-Optimized Git Panel",
+      "description": "As a** mobile user I want** a usable git panel So that** I can manage branches and PRs from my phone",
+      "acceptance_criteria": [
+        "Git panel sections (Branch, PR, Merge) are collapsible accordions",
+        "Only one section expanded at a time by default",
+        "Form inputs are full-width",
+        "Buttons have adequate touch targets (44px height minimum)",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Optimize Token Meter for Mobile",
+      "description": "As a** mobile user I want** to quickly see token usage status So that** I know if rotation is needed",
+      "acceptance_criteria": [
+        "Meter bar is full-width",
+        "Breakdown grid becomes single-column on mobile",
+        "Warning/critical alerts are prominent and readable",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Make Activity Log Scrollable and Touch-Friendly",
+      "description": "As a** mobile user I want** to browse the activity log So that** I can see what the agent is doing",
+      "acceptance_criteria": [
+        "Log entries have adequate height for touch (48px minimum)",
+        "Log container has max-height appropriate for mobile viewport",
+        "Timestamps are abbreviated on mobile to save space",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Add Sticky Action Bar for Session Controls",
+      "description": "As a** mobile user I want** Start/Pause/Stop buttons always accessible So that** I can control my session without scrolling",
+      "acceptance_criteria": [
+        "Session controls are in a sticky bar at bottom of viewport on mobile",
+        "Bar has solid background (not transparent)",
+        "Buttons are evenly distributed and full-width",
+        "Bar doesn't obscure content (adequate padding on last content element)",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Optimize Story Progress Cards for Mobile",
+      "description": "As a** mobile user I want** to see story progress clearly So that** I know which stories are complete",
+      "acceptance_criteria": [
+        "Story cards are full-width",
+        "Acceptance criteria list is readable (adequate line height)",
+        "Complete/pending status is visually clear with color and icon",
+        "Cards have adequate spacing between them",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Add Mobile Navigation",
+      "description": "As a** mobile user I want** easy navigation between views So that** I can move between session list and active session",
+      "acceptance_criteria": [
+        "Add bottom navigation bar on mobile with: Sessions list, Current session (if any), New session",
+        "Active route is visually highlighted",
+        "Navigation bar has 56px height minimum",
+        "Icons with labels for each nav item",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Add Pull-to-Refresh on Session Dashboard",
+      "description": "As a** mobile user I want** to refresh session data with a pull gesture So that** I can update status without finding a refresh button",
+      "acceptance_criteria": [
+        "Implement pull-to-refresh on session dashboard",
+        "Visual indicator shows when refreshing",
+        "Works on touch devices only (no conflict with desktop scroll)",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Optimize Guardrails Panel for Mobile",
+      "description": "As a** mobile user I want** to see guardrail violations clearly So that** I can address issues promptly",
+      "acceptance_criteria": [
+        "Guardrail cards are full-width",
+        "Content text wraps appropriately",
+        "Warning styling is visible (icons, colors)",
+        "Typecheck passes",
+        "Verify in browser at 390px width"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Add Landscape Mode Optimizations",
+      "description": "As a** mobile user I want** the app to work well in landscape orientation So that** I can use my phone horizontally for more width",
+      "acceptance_criteria": [
+        "Dashboard can use 2-column layout in landscape if width > 600px",
+        "PRD editor textarea has reduced height in landscape to show more of form",
+        "Chat input adjusts height appropriately",
+        "Typecheck passes",
+        "Verify in browser in landscape mode"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

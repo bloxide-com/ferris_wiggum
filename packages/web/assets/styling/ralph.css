@@ -878,6 +878,10 @@
     .ralph-main {
         grid-template-columns: 1fr;
     }
+}
+
+/* Mobile: form rows stack vertically below 480px */
+@media (max-width: 480px) {
     .form-row {
         grid-template-columns: 1fr;
     }

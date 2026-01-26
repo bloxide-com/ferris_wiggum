@@ -2,18 +2,46 @@ use dioxus::prelude::*;
 use ralph::{Branch, Guardrail, Prd, PrdConversation, Session, SessionConfig};
 
 #[cfg(feature = "server")]
-use ralph::GitOperations;
+use ralph::{run_memory_monitor, shutdown_signal, GitOperations};
 
 #[cfg(feature = "server")]
 use ralph::{GuardrailManager, PrdConversationManager, SessionManager};
 #[cfg(feature = "server")]
 use std::sync::Arc;
+#[cfg(feature = "server")]
+use std::sync::OnceLock;
+#[cfg(feature = "server")]
+use std::time::Duration;
 
 // Global session manager
 #[cfg(feature = "server")]
 lazy_static::lazy_static! {
     static ref SESSION_MANAGER: Arc<SessionManager> = Arc::new(SessionManager::new());
     static ref CONVERSATION_MANAGER: Arc<PrdConversationManager> = Arc::new(PrdConversationManager::new());
+}
+
+#[cfg(feature = "server")]
+static BACKGROUND_TASKS_STARTED: OnceLock<()> = OnceLock::new();
+
+#[cfg(feature = "server")]
+pub fn init_background_tasks() {
+    BACKGROUND_TASKS_STARTED.get_or_init(|| {
+        // Memory monitor
+        let shutdown_rx = SESSION_MANAGER.subscribe_shutdown();
+        tokio::spawn(run_memory_monitor(Duration::from_secs(30), shutdown_rx));
+
+        // OS signal handling -> graceful shutdown
+        tokio::spawn(async move {
+            shutdown_signal().await;
+            tracing::info!("Shutdown signal received (SIGTERM/SIGINT), shutting down sessions");
+            SESSION_MANAGER.shutdown();
+        });
+    });
+}
+
+#[cfg(feature = "server")]
+pub async fn shutdown() {
+    SESSION_MANAGER.shutdown();
 }
 
 // Session Management
@@ -23,6 +51,9 @@ pub async fn create_session(
     project_path: String,
     config: SessionConfig,
 ) -> Result<Session, ServerFnError> {
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     tracing::info!("Creating session for project: {}", project_path);
     tracing::debug!("Session config: {:?}", config);
 
@@ -40,6 +71,9 @@ pub async fn create_session(
 
 #[server]
 pub async fn list_sessions() -> Result<Vec<Session>, ServerFnError> {
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     tracing::debug!("Listing all sessions");
     let sessions = SESSION_MANAGER.list_sessions().await;
     tracing::info!("Found {} sessions", sessions.len());
@@ -48,6 +82,9 @@ pub async fn list_sessions() -> Result<Vec<Session>, ServerFnError> {
 
 #[server]
 pub async fn get_session(id: String) -> Result<Session, ServerFnError> {
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     SESSION_MANAGER
         .get_session(&id)
         .await
@@ -56,6 +93,9 @@ pub async fn get_session(id: String) -> Result<Session, ServerFnError> {
 
 #[server]
 pub async fn start_session(id: String) -> Result<Session, ServerFnError> {
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     SESSION_MANAGER
         .start_session(&id)
         .await
@@ -64,6 +104,9 @@ pub async fn start_session(id: String) -> Result<Session, ServerFnError> {
 
 #[server]
 pub async fn pause_session(id: String) -> Result<Session, ServerFnError> {
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     tracing::info!("Pausing session: {}", id);
     SESSION_MANAGER
         .pause_session(&id)
@@ -79,6 +122,9 @@ pub async fn pause_session(id: String) -> Result<Session, ServerFnError> {
 
 #[server]
 pub async fn stop_session(id: String) -> Result<Session, ServerFnError> {
+    #[cfg(feature = "server")]
+    init_background_tasks();
+
     SESSION_MANAGER
         .stop_session(&id)
         .await

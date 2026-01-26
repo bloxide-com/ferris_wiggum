@@ -8,13 +8,15 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = "2.0"
 chrono = "0.4"
-tokio = { workspace = true, features = ["full"], optional = true }
+tokio = { workspace = true, features = ["full", "signal"], optional = true }
 uuid = { version = "1.19.0", features = ["v4", "serde"], optional = true }
 tracing = { version = "0.1", optional = true }
+sysinfo = { version = "0.32", optional = true }
 
 [features]
 default = []
-server = ["tokio", "uuid", "tracing"]
+server = ["tokio", "uuid", "tracing", "sysinfo"]
 tokio = ["dep:tokio"]
 uuid = ["dep:uuid"]
 tracing = ["dep:tracing"]
+sysinfo = ["dep:sysinfo"]
