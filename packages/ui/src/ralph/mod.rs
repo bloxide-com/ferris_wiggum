@@ -1,4 +1,5 @@
 mod activity_log;
+mod bottom_tab_bar;
 mod branch_selector;
 mod file_picker;
 mod git_panel;
@@ -11,6 +12,7 @@ mod story_progress;
 mod token_meter;
 
 pub use activity_log::ActivityLog;
+pub use bottom_tab_bar::BottomTabBar;
 pub use branch_selector::BranchSelector;
 pub use file_picker::FilePicker;
 pub use git_panel::GitPanel;

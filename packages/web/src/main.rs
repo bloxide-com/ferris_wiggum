@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ui::Navbar;
+use ui::{ralph::BottomTabBar, Navbar};
 use views::{RalphDashboard, RalphNewSession, RalphSession};
 #[cfg(feature = "server")]
 use api::ralph::init_background_tasks;
@@ -61,5 +61,10 @@ fn WebNavbar() -> Element {
         }
 
         Outlet::<Route> {}
+
+        BottomTabBar::<Route> {
+            dashboard_route: Route::RalphDashboard {},
+            new_session_route: Route::RalphNewSession {},
+        }
     }
 }
