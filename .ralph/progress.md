@@ -109,3 +109,18 @@
 - Meta tags should be placed in the root `App` component to ensure they're present on all pages
 - Typecheck passes with `cargo check -p web --features web` validates the implementation
 ---
+
+## 2026-01-26 - US-002
+- Added CSS custom properties for responsive breakpoints in `packages/web/assets/main.css`
+- Defined `--bp-mobile: 480px` and `--bp-tablet: 768px` in `:root` selector
+- Added documentation comments explaining breakpoint usage in media queries
+- Files changed:
+  - `packages/web/assets/main.css`
+  - `prd.json`
+
+**Learnings for future iterations:**
+- CSS custom properties for breakpoints should be defined in the `:root` selector in `main.css` for global availability
+- Breakpoint variables can be used in media queries: `@media (max-width: var(--bp-mobile)) { ... }`
+- These breakpoints provide consistent responsive thresholds across all components (mobile: 480px, tablet: 768px)
+- Typecheck passes with `cargo check -p web --features web` validates the implementation
+---
