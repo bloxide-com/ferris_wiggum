@@ -2,6 +2,8 @@ use dioxus::prelude::*;
 
 use ui::Navbar;
 use views::{RalphDashboard, RalphNewSession, RalphSession};
+#[cfg(feature = "server")]
+use api::ralph::init_background_tasks;
 
 mod hooks;
 mod views;
@@ -31,6 +33,9 @@ fn main() {
 #[component]
 fn App() -> Element {
     // Build cool things ✌️
+
+    #[cfg(feature = "server")]
+    init_background_tasks();
 
     rsx! {
         // Global app resources

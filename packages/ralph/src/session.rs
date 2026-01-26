@@ -4,7 +4,7 @@ use crate::parser::StreamParser;
 use crate::types::*;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
 pub struct SessionManager {
     sessions: std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, Session>>>,
@@ -13,10 +13,12 @@ pub struct SessionManager {
             std::collections::HashMap<String, Vec<mpsc::UnboundedSender<ActivityEntry>>>,
         >,
     >,
+    shutdown_tx: broadcast::Sender<()>,
 }
 
 impl SessionManager {
     pub fn new() -> Self {
+        let (shutdown_tx, _) = broadcast::channel(16);
         Self {
             sessions: std::sync::Arc::new(tokio::sync::RwLock::new(
                 std::collections::HashMap::new(),
@@ -24,7 +26,17 @@ impl SessionManager {
             activity_channels: std::sync::Arc::new(tokio::sync::RwLock::new(
                 std::collections::HashMap::new(),
             )),
+            shutdown_tx,
         }
+    }
+
+    pub fn subscribe_shutdown(&self) -> broadcast::Receiver<()> {
+        self.shutdown_tx.subscribe()
+    }
+
+    pub fn shutdown(&self) {
+        // It's ok if there are no active receivers.
+        let _ = self.shutdown_tx.send(());
     }
 
     pub async fn create_session(
@@ -134,10 +146,11 @@ impl SessionManager {
         // Spawn the Ralph loop in a background task
         let session_clone = session.clone();
         let manager_clone = self.clone();
+        let shutdown_rx = self.subscribe_shutdown();
 
         tracing::debug!("Spawning Ralph loop for session {}", id);
         tokio::spawn(async move {
-            if let Err(e) = manager_clone.run_loop(session_clone).await {
+            if let Err(e) = manager_clone.run_loop(session_clone, shutdown_rx).await {
                 tracing::error!("Ralph loop error: {}", e);
             }
         });
@@ -217,8 +230,43 @@ impl SessionManager {
         }
     }
 
-    async fn run_loop(&self, mut session: Session) -> Result<(), RalphError> {
+    async fn run_loop(
+        &self,
+        mut session: Session,
+        mut shutdown_rx: broadcast::Receiver<()>,
+    ) -> Result<(), RalphError> {
         while session.current_iteration < session.config.max_iterations {
+            // Check for shutdown signal (non-blocking)
+            match shutdown_rx.try_recv() {
+                Ok(()) => {
+                    tracing::info!("Shutdown signal received, stopping session {}", session.id);
+                    session.status = SessionStatus::Paused;
+                    session.updated_at = SystemTime::now();
+                    let _ = self.update_session(session).await;
+                    return Ok(());
+                }
+                Err(broadcast::error::TryRecvError::Empty) => {}
+                Err(broadcast::error::TryRecvError::Closed) => {
+                    // Treat closed channel as a shutdown request.
+                    tracing::info!("Shutdown channel closed, stopping session {}", session.id);
+                    session.status = SessionStatus::Paused;
+                    session.updated_at = SystemTime::now();
+                    let _ = self.update_session(session).await;
+                    return Ok(());
+                }
+                Err(broadcast::error::TryRecvError::Lagged(_)) => {
+                    // If we missed signals, still treat it as shutdown.
+                    tracing::info!(
+                        "Shutdown signal lagged, stopping session {}",
+                        session.id
+                    );
+                    session.status = SessionStatus::Paused;
+                    session.updated_at = SystemTime::now();
+                    let _ = self.update_session(session).await;
+                    return Ok(());
+                }
+            }
+
             // Check if paused or stopped
             let current = self.get_session(&session.id).await?;
             if matches!(current.status, SessionStatus::Paused | SessionStatus::Idle) {
@@ -375,8 +423,9 @@ impl SessionManager {
         let gutter_signal_clone = gutter_signal.clone();
 
         // Run cursor-agent iteration
+        let shutdown_rx = self.subscribe_shutdown();
         runner
-            .run_iteration(&prompt, move |activity| {
+            .run_iteration(&prompt, shutdown_rx, move |activity| {
                 let parser = parser_clone.clone();
                 let saw_complete = saw_complete_clone.clone();
                 let gutter_signal = gutter_signal_clone.clone();
@@ -476,6 +525,7 @@ impl Clone for SessionManager {
         Self {
             sessions: self.sessions.clone(),
             activity_channels: self.activity_channels.clone(),
+            shutdown_tx: self.shutdown_tx.clone(),
         }
     }
 }
