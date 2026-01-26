@@ -50,6 +50,18 @@ impl CursorRunner {
             RalphError::CursorAgent("Failed to capture stdout".into())
         })?;
 
+        // Drain stderr to prevent buffer deadlock
+        if let Some(stderr) = child.stderr.take() {
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr).lines();
+                while let Ok(Some(line)) = reader.next_line().await {
+                    if !line.is_empty() {
+                        tracing::warn!("cursor-agent stderr: {}", line);
+                    }
+                }
+            });
+        }
+
         let mut reader = BufReader::new(stdout).lines();
 
         // Read stream-json output line by line
@@ -92,11 +104,20 @@ impl CursorRunner {
                 self.terminate(&mut child).await?;
                 return Err(RalphError::CursorAgent("cursor-agent terminated due to shutdown".into()));
             }
-            status = child.wait() => {
-                status.map_err(|e| {
-                    tracing::error!("Failed to wait for cursor-agent: {}", e);
-                    RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
-                })?
+            result = tokio::time::timeout(std::time::Duration::from_secs(600), child.wait()) => {
+                match result {
+                    Ok(status) => {
+                        status.map_err(|e| {
+                            tracing::error!("Failed to wait for cursor-agent: {}", e);
+                            RalphError::CursorAgent(format!("Failed to wait for cursor-agent: {}", e))
+                        })?
+                    }
+                    Err(_) => {
+                        tracing::error!("cursor-agent timed out after 10 minutes");
+                        self.terminate(&mut child).await?;
+                        return Err(RalphError::CursorAgent("cursor-agent timed out after 10 minutes".into()));
+                    }
+                }
             }
         };
 

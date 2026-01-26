@@ -47,8 +47,9 @@ pub async fn shutdown_signal() {
             }
             Err(e) => {
                 tracing::error!("Failed to install SIGTERM handler: {}", e);
-                // If we can't install SIGTERM, don't block shutdown forever.
-                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+                tracing::warn!("Falling back to Ctrl+C only for shutdown signal");
+                // If we can't install SIGTERM, fall through to ctrl_c only - don't block
+                std::future::pending::<()>().await;
             }
         }
     };

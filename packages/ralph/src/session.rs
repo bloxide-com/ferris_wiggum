@@ -149,9 +149,26 @@ impl SessionManager {
         let shutdown_rx = self.subscribe_shutdown();
 
         tracing::debug!("Spawning Ralph loop for session {}", id);
+        let handle = tokio::spawn(async move {
+            match manager_clone.run_loop(session_clone, shutdown_rx).await {
+                Ok(()) => {
+                    tracing::info!("Ralph loop completed successfully");
+                }
+                Err(e) => {
+                    tracing::error!("Ralph loop error: {}", e);
+                }
+            }
+        });
+
+        // Spawn a monitoring task to detect if the main loop panics
         tokio::spawn(async move {
-            if let Err(e) = manager_clone.run_loop(session_clone, shutdown_rx).await {
-                tracing::error!("Ralph loop error: {}", e);
+            if let Err(e) = handle.await {
+                if e.is_panic() {
+                    tracing::error!("FATAL: Ralph loop panicked - this indicates a serious bug that should be fixed");
+                    tracing::error!("Panic details: {:?}", e);
+                } else if e.is_cancelled() {
+                    tracing::warn!("Ralph loop was cancelled");
+                }
             }
         });
 
@@ -430,9 +447,10 @@ impl SessionManager {
                 let saw_complete = saw_complete_clone.clone();
                 let gutter_signal = gutter_signal_clone.clone();
                 let session_id = session_id.clone();
+                let session_id_monitor = session_id.clone();
                 let manager = manager_clone.clone();
 
-                tokio::spawn(async move {
+                let handle = tokio::spawn(async move {
                     // Parse activity
                     let mut parser_guard = parser.lock().await;
                     let (entry, signal) = parser_guard.parse_activity(activity.kind);
@@ -457,6 +475,15 @@ impl SessionManager {
                                 tracing::info!("Rotation signal for session {}", session_id);
                             }
                             _ => {}
+                        }
+                    }
+                });
+
+                // Monitor for panics in the activity parsing task
+                tokio::spawn(async move {
+                    if let Err(e) = handle.await {
+                        if e.is_panic() {
+                            tracing::error!("Activity parsing task panicked for session {}: {:?}", session_id_monitor, e);
                         }
                     }
                 });
