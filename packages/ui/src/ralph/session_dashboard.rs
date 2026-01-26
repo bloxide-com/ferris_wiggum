@@ -1,10 +1,13 @@
-use super::{ActivityLog, GitPanel, GuardrailsPanel, StoryProgress, TokenMeter};
+use super::{ActivityLog, GitPanel, GuardrailsPanel, PrdConversation, PrdEditor, StoryProgress, TokenMeter};
 use dioxus::prelude::*;
-use ralph::Session;
+use ralph::{Prd, Session};
 
 #[component]
 pub fn SessionDashboard(session_id: ReadSignal<String>) -> Element {
+    let mut refresh_nonce = use_signal(|| 0u32);
     let session = use_resource(move || async move {
+        // Read refresh nonce so this resource reruns on demand.
+        let _ = refresh_nonce();
         let result: Result<Session, _> = api::ralph::get_session(session_id()).await;
         result.ok()
     });
@@ -19,7 +22,12 @@ pub fn SessionDashboard(session_id: ReadSignal<String>) -> Element {
 
                         div { class: "ralph-main",
                             div { class: "ralph-content",
-                                if !stories.is_empty() {
+                                if sess.prd.is_none() {
+                                    PrdSetupPanel {
+                                        session_id: sess.id.clone(),
+                                        on_prd_set: move |_prd: Prd| refresh_nonce.with_mut(|n| *n += 1),
+                                    }
+                                } else if !stories.is_empty() {
                                     StoryProgress { stories }
                                 }
 
@@ -43,6 +51,63 @@ pub fn SessionDashboard(session_id: ReadSignal<String>) -> Element {
                 },
                 _ => rsx! {
                     div { class: "loading", "Loading session..." }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum PrdMode {
+    Conversation,
+    Paste,
+}
+
+#[component]
+fn PrdSetupPanel(session_id: String, on_prd_set: EventHandler<Prd>) -> Element {
+    let mut prd_mode = use_signal(|| PrdMode::Conversation);
+    let mut generated_prd_markdown = use_signal(|| None::<String>);
+
+    let on_prd_generated = move |prd_markdown: String| {
+        generated_prd_markdown.set(Some(prd_markdown));
+        prd_mode.set(PrdMode::Paste);
+    };
+
+    rsx! {
+        div { class: "prd-step",
+            h2 { "Set Product Requirements Document" }
+            p {
+                "Define the stories you want Ralph to work on. "
+                "Use the conversation mode to build your PRD interactively, or paste your own markdown."
+            }
+
+            // Mode selector tabs
+            div { class: "prd-mode-selector",
+                button {
+                    class: if matches!(prd_mode(), PrdMode::Conversation) { "prd-mode-btn active" } else { "prd-mode-btn" },
+                    onclick: move |_| prd_mode.set(PrdMode::Conversation),
+                    "Conversation"
+                }
+                button {
+                    class: if matches!(prd_mode(), PrdMode::Paste) { "prd-mode-btn active" } else { "prd-mode-btn" },
+                    onclick: move |_| prd_mode.set(PrdMode::Paste),
+                    "Paste Markdown"
+                }
+            }
+
+            match prd_mode() {
+                PrdMode::Conversation => rsx! {
+                    PrdConversation {
+                        session_id: session_id.clone(),
+                        on_prd_generated: on_prd_generated
+                    }
+                },
+                PrdMode::Paste => rsx! {
+                    PrdEditor {
+                        session_id: session_id.clone(),
+                        on_prd_set: on_prd_set,
+                        initial_markdown: generated_prd_markdown()
+                    }
                 }
             }
         }
@@ -95,7 +160,9 @@ fn SessionHeader(session: Session) -> Element {
             div { class: "session-controls",
                 button {
                     onclick: start_session,
-                    disabled: starting() || matches!(session.status, ralph::SessionStatus::Running { .. }),
+                    disabled: starting()
+                        || session.prd.is_none()
+                        || matches!(session.status, ralph::SessionStatus::Running { .. }),
                     class: "btn btn-start",
                     if starting() { "Starting..." } else { "Start" }
                 }

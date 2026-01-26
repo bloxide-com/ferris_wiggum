@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
-use ralph::{Prd, SessionConfig};
+use ralph::SessionConfig;
 use serde::{Deserialize, Serialize};
-use ui::ralph::{FilePicker, PrdConversation, PrdEditor};
+use ui::ralph::FilePicker;
 
 #[cfg(feature = "web")]
 use web_sys::{window, Event, EventTarget, VisibilityState};
@@ -28,15 +28,12 @@ pub fn RalphNewSession() -> Element {
             rotate_threshold: 80_000,
             branch_name: String::new(),
             open_pr: false,
-            session_id: None,
-            step: SetupStep::Config,
-            prd_mode: PrdMode::Conversation,
-            generated_prd_markdown: None,
         },
     );
 
     let mut creating = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
+    let nav = navigator();
 
     // Create a local signal for FilePicker that syncs with draft
     let mut project_path_input = use_signal(|| draft().project_path_input.clone());
@@ -141,7 +138,8 @@ pub fn RalphNewSession() -> Element {
     });
 
     let create_session = move |_| {
-        let mut draft_signal = draft;
+        let draft_signal = draft;
+        let nav = nav.clone();
         spawn(async move {
             creating.set(true);
             error.set(None);
@@ -182,8 +180,16 @@ pub fn RalphNewSession() -> Element {
 
             match api::ralph::create_session(project_path, config).await {
                 Ok(session) => {
-                    draft_signal.write().session_id = Some(session.id.clone());
-                    draft_signal.write().step = SetupStep::Prd;
+                    // Clear localStorage when navigating to session page (successful completion)
+                    #[cfg(feature = "web")]
+                    {
+                        if let Some(window) = web_sys::window() {
+                            if let Ok(Some(storage)) = window.local_storage() {
+                                let _ = storage.remove_item("ralph_new_session_draft");
+                            }
+                        }
+                    }
+                    nav.push(format!("/{}", session.id).as_str());
                     creating.set(false);
                 }
                 Err(e) => {
@@ -195,54 +201,13 @@ pub fn RalphNewSession() -> Element {
         });
     };
 
-    let on_prd_set = {
-        let draft_signal = draft;
-        move |_prd: Prd| {
-            // Clear localStorage when navigating to session page (successful completion)
-            #[cfg(feature = "web")]
-            {
-                if let Some(window) = web_sys::window() {
-                    if let Ok(Some(storage)) = window.local_storage() {
-                        let _ = storage.remove_item("ralph_new_session_draft");
-                    }
-                }
-            }
-            // Navigate to session page
-            let draft = draft_signal();
-            if let Some(id) = draft.session_id.clone() {
-                let nav = navigator();
-                nav.push(format!("/{}", id).as_str());
-            }
-        }
-    };
-
-    let on_prd_generated = {
-        let mut draft_signal = draft;
-        move |prd_markdown: String| {
-            // Store the generated PRD markdown and switch to paste mode for preview
-            draft_signal.write().generated_prd_markdown = Some(prd_markdown);
-            draft_signal.write().prd_mode = PrdMode::Paste;
-        }
-    };
-
     rsx! {
         div { class: "ralph-new-session-page",
             h1 { "Create New Ralph Session" }
+            div {
+                class: "session-form",
 
-            div { class: "setup-steps",
-                div { class: if matches!(draft().step, SetupStep::Config) { "step active" } else { "step" },
-                    "1. Configure Session"
-                }
-                div { class: if matches!(draft().step, SetupStep::Prd) { "step active" } else { "step" },
-                    "2. Set PRD"
-                }
-            }
-
-            if matches!(draft().step, SetupStep::Config) {
-                div {
-                    class: "session-form",
-
-                    div { class: "form-group",
+                div { class: "form-group",
                     label { "for": "project-path", "Project Path" }
                     FilePicker {
                         value: project_path_input,
@@ -255,37 +220,37 @@ pub fn RalphNewSession() -> Element {
                     p { class: "form-help", "Browse and select your project's git repository directory" }
                 }
 
-                    div { class: "form-row",
-                        div { class: "form-group",
-                            label { "for": "prd-model", "PRD Model" }
-                            select {
-                                id: "prd-model",
-                                value: "{draft().prd_model}",
-                                onchange: move |e| draft.write().prd_model = e.value(),
-                                option { value: "auto", "Auto (cursor-agent picks best model)" }
-                                option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
-                                option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
-                                option { value: "gpt-5.2-high", "GPT 5.2 High" }
-                                option { value: "composer-1", "Composer 1" }
-                            }
-                            p { class: "form-help", "Model used for PRD generation" }
+                div { class: "form-row",
+                    div { class: "form-group",
+                        label { "for": "prd-model", "PRD Model" }
+                        select {
+                            id: "prd-model",
+                            value: "{draft().prd_model}",
+                            onchange: move |e| draft.write().prd_model = e.value(),
+                            option { value: "auto", "Auto (cursor-agent picks best model)" }
+                            option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
+                            option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
+                            option { value: "gpt-5.2-high", "GPT 5.2 High" }
+                            option { value: "composer-1", "Composer 1" }
                         }
-
-                        div { class: "form-group",
-                            label { "for": "execution-model", "Execution Model" }
-                            select {
-                                id: "execution-model",
-                                value: "{draft().execution_model}",
-                                onchange: move |e| draft.write().execution_model = e.value(),
-                                option { value: "auto", "Auto (cursor-agent picks best model)" }
-                                option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
-                                option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
-                                option { value: "gpt-5.2-high", "GPT 5.2 High" }
-                                option { value: "composer-1", "Composer 1" }
-                            }
-                            p { class: "form-help", "Model used for code execution" }
-                        }
+                        p { class: "form-help", "Model used for PRD generation" }
                     }
+
+                    div { class: "form-group",
+                        label { "for": "execution-model", "Execution Model" }
+                        select {
+                            id: "execution-model",
+                            value: "{draft().execution_model}",
+                            onchange: move |e| draft.write().execution_model = e.value(),
+                            option { value: "auto", "Auto (cursor-agent picks best model)" }
+                            option { value: "opus-4.5-thinking", "Claude Opus 4.5 (thinking)" }
+                            option { value: "sonnet-4.5-thinking", "Claude Sonnet 4.5 (thinking)" }
+                            option { value: "gpt-5.2-high", "GPT 5.2 High" }
+                            option { value: "composer-1", "Composer 1" }
+                        }
+                        p { class: "form-help", "Model used for code execution" }
+                    }
+                }
 
                 div { class: "form-row",
                     div { class: "form-group",
@@ -358,76 +323,25 @@ pub fn RalphNewSession() -> Element {
                     }
                 }
 
-                    if let Some(err) = error() {
-                        div { class: "error-message",
-                            "{err}"
-                        }
-                    }
-
-                    div { class: "form-actions",
-                        button {
-                            r#type: "button",
-                            onclick: create_session,
-                            disabled: creating() || !can_create_session(),
-                            class: "btn btn-primary",
-                            if creating() { "Creating..." } else { "Create session" }
-                        }
-
-                        Link {
-                            to: "/",
-                            class: "btn btn-secondary",
-                            "Cancel"
-                        }
+                if let Some(err) = error() {
+                    div { class: "error-message",
+                        "{err}"
                     }
                 }
-            }
 
-            if matches!(draft().step, SetupStep::Prd) {
-                if let Some(id) = draft().session_id.clone() {
-                    div { class: "prd-step",
-                        h2 { "Set Product Requirements Document" }
-                        p {
-                            "Define the stories you want Ralph to work on. "
-                            "Use the conversation mode to build your PRD interactively, or paste your own markdown."
-                        }
+                div { class: "form-actions",
+                    button {
+                        r#type: "button",
+                        onclick: create_session,
+                        disabled: creating() || !can_create_session(),
+                        class: "btn btn-primary",
+                        if creating() { "Creating..." } else { "Create session" }
+                    }
 
-                        // Mode selector tabs
-                        div { class: "prd-mode-selector",
-                            button {
-                                class: if matches!(draft().prd_mode, PrdMode::Conversation) { "prd-mode-btn active" } else { "prd-mode-btn" },
-                                onclick: move |_| draft.write().prd_mode = PrdMode::Conversation,
-                                "Conversation"
-                            }
-                            button {
-                                class: if matches!(draft().prd_mode, PrdMode::Paste) { "prd-mode-btn active" } else { "prd-mode-btn" },
-                                onclick: move |_| draft.write().prd_mode = PrdMode::Paste,
-                                "Paste Markdown"
-                            }
-                        }
-
-                        match draft().prd_mode {
-                            PrdMode::Conversation => rsx! {
-                                PrdConversation {
-                                    session_id: id.clone(),
-                                    on_prd_generated: on_prd_generated
-                                }
-                            },
-                            PrdMode::Paste => rsx! {
-                                PrdEditor {
-                                    session_id: id.clone(),
-                                    on_prd_set: on_prd_set,
-                                    initial_markdown: draft().generated_prd_markdown.clone()
-                                }
-                            }
-                        }
-
-                        div { class: "step-actions",
-                            button {
-                                onclick: move |_| draft.write().step = SetupStep::Config,
-                                class: "btn btn-secondary",
-                                "Back"
-                            }
-                        }
+                    Link {
+                        to: "/",
+                        class: "btn btn-secondary",
+                        "Cancel"
                     }
                 }
             }
@@ -447,20 +361,4 @@ pub struct NewSessionDraft {
     pub rotate_threshold: u32,
     pub branch_name: String,
     pub open_pr: bool,
-    pub session_id: Option<String>,
-    pub step: SetupStep,
-    pub prd_mode: PrdMode,
-    pub generated_prd_markdown: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
-pub enum SetupStep {
-    Config,
-    Prd,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
-pub enum PrdMode {
-    Conversation,
-    Paste,
 }

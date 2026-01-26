@@ -1,5 +1,4 @@
 use crate::cursor::CursorRunner;
-use crate::git::GitOperations;
 use crate::guardrails::GuardrailManager;
 use crate::parser::StreamParser;
 use crate::types::*;
@@ -370,7 +369,6 @@ impl SessionManager {
         let gutter_signal = std::sync::Arc::new(tokio::sync::Mutex::new(None));
 
         let session_id = session.id.clone();
-        let current_iteration = session.current_iteration;
         let manager_clone = self.clone();
         let parser_clone = parser.clone();
         let saw_complete_clone = saw_complete.clone();
@@ -378,7 +376,7 @@ impl SessionManager {
 
         // Run cursor-agent iteration
         runner
-            .run_iteration(&prompt, move |mut activity| {
+            .run_iteration(&prompt, move |activity| {
                 let parser = parser_clone.clone();
                 let saw_complete = saw_complete_clone.clone();
                 let gutter_signal = gutter_signal_clone.clone();
@@ -386,8 +384,7 @@ impl SessionManager {
                 let manager = manager_clone.clone();
 
                 tokio::spawn(async move {
-                    // Update iteration number and parse
-                    activity.iteration = current_iteration;
+                    // Parse activity
                     let mut parser_guard = parser.lock().await;
                     let (entry, signal) = parser_guard.parse_activity(activity.kind);
                     drop(parser_guard);

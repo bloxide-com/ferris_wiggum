@@ -8,11 +8,23 @@ pub fn PrdEditor(
     #[props(default)] initial_markdown: Option<String>,
 ) -> Element {
     let session_id = use_signal(|| session_id);
-    let mut markdown = use_signal(|| initial_markdown.unwrap_or_default());
+    let initial_markdown_value = initial_markdown.clone().unwrap_or_default();
+    let mut markdown = use_signal(|| initial_markdown_value.clone());
     let mut prd_preview = use_signal(|| None::<Prd>);
     let mut converting = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
     let mut mode = use_signal(|| EditorMode::Markdown);
+
+    // If the parent provides new markdown (e.g. "Use Generated PRD"), sync it into the editor.
+    use_effect(move || {
+        if let Some(md) = initial_markdown.clone() {
+            if markdown() != md {
+                markdown.set(md);
+                prd_preview.set(None);
+                mode.set(EditorMode::Markdown);
+            }
+        }
+    });
 
     let convert_prd = move |_| {
         let session_id = session_id();
