@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use ralph::{Branch, Guardrail, Prd, PrdConversation, Session, SessionConfig};
 
 #[cfg(feature = "server")]
-use ralph::{run_memory_monitor, shutdown_signal, GitOperations};
+use ralph::{run_memory_monitor, run_health_watchdog, shutdown_signal, GitOperations};
 
 #[cfg(feature = "server")]
 use ralph::{GuardrailManager, PrdConversationManager, SessionManager};
@@ -48,6 +48,10 @@ pub fn init_background_tasks() {
         let shutdown_rx = SESSION_MANAGER.subscribe_shutdown();
         tokio::spawn(run_memory_monitor(Duration::from_secs(30), shutdown_rx));
 
+        // System health watchdog
+        let shutdown_rx2 = SESSION_MANAGER.subscribe_shutdown();
+        tokio::spawn(run_health_watchdog(Duration::from_secs(60), shutdown_rx2));
+
         // OS signal handling -> graceful shutdown
         tokio::spawn(async move {
             shutdown_signal().await;
@@ -72,18 +76,22 @@ pub async fn create_session(
     #[cfg(feature = "server")]
     init_background_tasks();
 
-    tracing::info!("Creating session for project: {}", project_path);
-    tracing::debug!("Session config: {:?}", config);
+    tracing::info!("🆕 API: create_session");
+    tracing::info!("   Project path: {}", project_path);
+    tracing::info!("   PRD model: {}", config.prd_model);
+    tracing::info!("   Execution model: {}", config.execution_model);
+    tracing::info!("   Max iterations: {}", config.max_iterations);
+    tracing::debug!("   Full config: {:?}", config);
 
     let session = SESSION_MANAGER
         .create_session(project_path.clone(), config)
         .await
         .map_err(|e| {
-            tracing::error!("Failed to create session for {}: {}", project_path, e);
+            tracing::error!("❌ Failed to create session for {}: {}", project_path, e);
             ServerFnError::new(e.to_string())
         })?;
 
-    tracing::info!("Session created successfully: {}", session.id);
+    tracing::info!("✅ Session created successfully: {}", session.id);
     Ok(session)
 }
 
@@ -92,9 +100,12 @@ pub async fn list_sessions() -> Result<Vec<Session>, ServerFnError> {
     #[cfg(feature = "server")]
     init_background_tasks();
 
-    tracing::debug!("Listing all sessions");
+    tracing::debug!("📋 API: list_sessions");
     let sessions = SESSION_MANAGER.list_sessions().await;
-    tracing::info!("Found {} sessions", sessions.len());
+    tracing::info!("   Found {} sessions", sessions.len());
+    for session in &sessions {
+        tracing::debug!("   - {} ({}): {:?}", session.id, session.project_path, session.status);
+    }
     Ok(sessions)
 }
 
@@ -103,10 +114,18 @@ pub async fn get_session(id: String) -> Result<Session, ServerFnError> {
     #[cfg(feature = "server")]
     init_background_tasks();
 
-    SESSION_MANAGER
+    tracing::debug!("🔍 API: get_session({})", id);
+    let session = SESSION_MANAGER
         .get_session(&id)
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+        .map_err(|e| {
+            tracing::warn!("   Session {} not found: {}", id, e);
+            ServerFnError::new(e.to_string())
+        })?;
+    
+    tracing::debug!("   Status: {:?}", session.status);
+    tracing::debug!("   Iteration: {}/{}", session.current_iteration, session.config.max_iterations);
+    Ok(session)
 }
 
 #[server]
@@ -114,10 +133,17 @@ pub async fn start_session(id: String) -> Result<Session, ServerFnError> {
     #[cfg(feature = "server")]
     init_background_tasks();
 
-    SESSION_MANAGER
+    tracing::info!("▶️  API: start_session({})", id);
+    let session = SESSION_MANAGER
         .start_session(&id)
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+        .map_err(|e| {
+            tracing::error!("   Failed to start session {}: {}", id, e);
+            ServerFnError::new(e.to_string())
+        })?;
+    
+    tracing::info!("   Session {} started successfully", id);
+    Ok(session)
 }
 
 #[server]
@@ -125,16 +151,16 @@ pub async fn pause_session(id: String) -> Result<Session, ServerFnError> {
     #[cfg(feature = "server")]
     init_background_tasks();
 
-    tracing::info!("Pausing session: {}", id);
+    tracing::info!("⏸️  API: pause_session({})", id);
     SESSION_MANAGER
         .pause_session(&id)
         .await
         .map_err(|e| {
-            tracing::error!("Failed to pause session {}: {}", id, e);
+            tracing::error!("   Failed to pause session {}: {}", id, e);
             ServerFnError::new(e.to_string())
         })
         .inspect(|_| {
-            tracing::info!("Session {} paused successfully", id);
+            tracing::info!("   Session {} paused successfully", id);
         })
 }
 
@@ -143,10 +169,17 @@ pub async fn stop_session(id: String) -> Result<Session, ServerFnError> {
     #[cfg(feature = "server")]
     init_background_tasks();
 
+    tracing::info!("⏹️  API: stop_session({})", id);
     SESSION_MANAGER
         .stop_session(&id)
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+        .map_err(|e| {
+            tracing::error!("   Failed to stop session {}: {}", id, e);
+            ServerFnError::new(e.to_string())
+        })
+        .inspect(|_| {
+            tracing::info!("   Session {} stopped successfully", id);
+        })
 }
 
 // Git Operations
@@ -280,16 +313,27 @@ pub async fn push_branch(
 
 #[server]
 pub async fn set_prd(id: String, prd: Prd) -> Result<Session, ServerFnError> {
+    tracing::info!("📄 API: set_prd({}) - {} stories", id, prd.stories.len());
+    for (idx, story) in prd.stories.iter().enumerate() {
+        tracing::debug!("   Story {}: {} ({})", idx + 1, story.id, story.title);
+    }
+    
     SESSION_MANAGER
         .set_prd(&id, prd)
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+        .map_err(|e| {
+            tracing::error!("   Failed to set PRD for {}: {}", id, e);
+            ServerFnError::new(e.to_string())
+        })
+        .inspect(|_| {
+            tracing::info!("   PRD set successfully for {}", id);
+        })
 }
 
 #[server]
 pub async fn convert_prd(id: String, markdown: String) -> Result<Prd, ServerFnError> {
-    tracing::info!("Converting PRD markdown for session: {}", id);
-    tracing::debug!("Markdown length: {} bytes", markdown.len());
+    tracing::info!("🔄 API: convert_prd({})", id);
+    tracing::info!("   Markdown length: {} bytes", markdown.len());
 
     let session = SESSION_MANAGER.get_session(&id).await.map_err(|e| {
         tracing::error!("Failed to get session {} for PRD conversion: {}", id, e);
@@ -459,7 +503,7 @@ fn parse_markdown_prd(
 
 #[server]
 pub async fn start_prd_conversation(session_id: String) -> Result<PrdConversation, ServerFnError> {
-    tracing::info!("Starting PRD conversation for session: {}", session_id);
+    tracing::info!("💬 API: start_prd_conversation({})", session_id);
     
     // Get session to retrieve model from config and root_path
     let session = SESSION_MANAGER
@@ -495,11 +539,9 @@ pub async fn send_prd_message(
     session_id: String,
     message: String,
 ) -> Result<PrdConversation, ServerFnError> {
-    tracing::info!(
-        "Sending message to PRD conversation for session: {}",
-        session_id
-    );
-    tracing::debug!("Message length: {} chars", message.len());
+    tracing::info!("💬 API: send_prd_message({})", session_id);
+    tracing::info!("   Message length: {} chars", message.len());
+    tracing::debug!("   Message preview: {}", &message.chars().take(100).collect::<String>());
     
     // Get session to retrieve model from config and root_path
     let session = SESSION_MANAGER

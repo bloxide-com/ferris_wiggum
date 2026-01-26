@@ -31,6 +31,15 @@
     --bp-mobile: 480px;
     /* Tablet: screens up to 768px wide */
     --bp-tablet: 768px;
+    /* Mobile breakpoint for mobile-first responsive design */
+    --mobile-breakpoint: 640px;
+
+    /* Mobile-specific spacing */
+    --spacing-mobile-sm: 8px;
+    --spacing-mobile-md: 16px;
+
+    /* Touch target minimum size for mobile accessibility */
+    --touch-target-min: 44px;
 }
 
 * {

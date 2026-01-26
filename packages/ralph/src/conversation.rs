@@ -6,6 +6,51 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
+/// Retry subprocess spawn with exponential backoff for transient failures
+async fn spawn_with_retry(
+    mut command: Command,
+    max_retries: u32,
+) -> Result<tokio::process::Child, std::io::Error> {
+    let mut last_error = None;
+    
+    for attempt in 0..=max_retries {
+        match command.spawn() {
+            Ok(child) => return Ok(child),
+            Err(e) => {
+                // Check if error is transient
+                let is_transient = matches!(
+                    e.kind(),
+                    std::io::ErrorKind::WouldBlock
+                        | std::io::ErrorKind::ResourceBusy
+                        | std::io::ErrorKind::Interrupted
+                );
+                
+                let is_transient = is_transient || matches!(
+                    e.raw_os_error(),
+                    Some(11) | Some(24) | Some(23)
+                );
+                
+                if !is_transient || attempt == max_retries {
+                    return Err(e);
+                }
+                
+                last_error = Some(e);
+                let delay_ms = 100 * 2u64.pow(attempt);
+                tracing::warn!(
+                    "Transient error spawning subprocess (attempt {}/{}): {:?}. Retrying in {}ms...",
+                    attempt + 1,
+                    max_retries + 1,
+                    last_error.as_ref().unwrap(),
+                    delay_ms
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+            }
+        }
+    }
+    
+    Err(last_error.unwrap())
+}
+
 const SYSTEM_PROMPT: &str = r#"You are an expert product manager helping to create a Product Requirements Document (PRD).
 
 Your goal is to guide the user through creating a comprehensive PRD by asking targeted questions. Follow this process:
@@ -135,12 +180,15 @@ impl PrdConversationManager {
         // Build the prompt from conversation history
         let prompt = self.build_prompt(conversation);
         
-        tracing::info!("Generating PRD conversation response with model {} in {}", model, root_path);
-        tracing::debug!("Prompt length: {} chars", prompt.len());
+        tracing::info!("=== Generating PRD conversation response ===");
+        tracing::info!("Model: {}", model);
+        tracing::info!("Root path: {}", root_path);
+        tracing::info!("Conversation messages: {}", conversation.messages.len());
+        tracing::info!("Prompt length: {} chars", prompt.len());
         
-        // Use cursor-agent in conversation mode, set working directory to root_path
-        // so cursor-agent can analyze the codebase when creating requirements
-        let mut child = Command::new("cursor-agent")
+        // Use cursor-agent in conversation mode with retry for transient failures
+        let mut command = Command::new("cursor-agent");
+        command
             .arg("--model")
             .arg(model)
             .arg("--output-format")
@@ -148,12 +196,24 @@ impl PrdConversationManager {
             .arg(&prompt)
             .current_dir(root_path)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| {
-                tracing::error!("Failed to spawn cursor-agent: {}", e);
-                RalphError::CursorAgent(format!("Failed to spawn cursor-agent: {}", e))
-            })?;
+            .stderr(Stdio::piped());
+        
+        let mut child = match spawn_with_retry(command, 3).await {
+            Ok(child) => {
+                tracing::info!("cursor-agent spawned for PRD (PID: {:?})", child.id());
+                child
+            }
+            Err(e) => {
+                tracing::error!("Failed to spawn cursor-agent for PRD: {}", e);
+                tracing::error!("Error kind: {:?}", e.kind());
+                tracing::error!("Working directory: {}", root_path);
+                tracing::error!("Model: {}", model);
+                
+                return Err(RalphError::CursorAgent(format!(
+                    "Failed to spawn cursor-agent: {} (kind: {:?})", e, e.kind()
+                )));
+            }
+        };
 
         let stdout = child.stdout.take().ok_or_else(|| {
             tracing::error!("Failed to capture cursor-agent stdout");
@@ -162,13 +222,18 @@ impl PrdConversationManager {
 
         // Drain stderr to prevent buffer deadlock
         if let Some(stderr) = child.stderr.take() {
+            let pid = child.id();
             tokio::spawn(async move {
+                tracing::debug!("Started stderr reader for PRD cursor-agent PID {:?}", pid);
                 let mut reader = BufReader::new(stderr).lines();
+                let mut line_count = 0;
                 while let Ok(Some(line)) = reader.next_line().await {
                     if !line.is_empty() {
-                        tracing::warn!("cursor-agent stderr: {}", line);
+                        line_count += 1;
+                        tracing::warn!("cursor-agent-prd[{:?}] stderr line {}: {}", pid, line_count, line);
                     }
                 }
+                tracing::debug!("PRD stderr reader completed ({} lines)", line_count);
             });
         }
 
@@ -176,18 +241,27 @@ impl PrdConversationManager {
         let mut response = String::new();
 
         // Read the entire response
+        tracing::info!("📖 Reading PRD response from cursor-agent...");
         let mut line = String::new();
+        let mut line_count = 0;
         while reader
             .read_line(&mut line)
             .await
             .map_err(|e| RalphError::CursorAgent(format!("Failed to read response: {}", e)))?
             > 0
         {
+            line_count += 1;
+            if line_count % 10 == 0 {
+                tracing::debug!("Read {} lines ({} chars total)", line_count, response.len());
+            }
             response.push_str(&line);
             line.clear();
         }
+        
+        tracing::info!("📥 Received {} lines ({} chars) from cursor-agent", line_count, response.len());
 
         // Wait for process to complete with timeout
+        tracing::debug!("Waiting for PRD cursor-agent process to complete...");
         let status = tokio::time::timeout(
             std::time::Duration::from_secs(300), // 5 minute timeout for PRD generation
             child.wait()
@@ -203,14 +277,20 @@ impl PrdConversationManager {
         })?;
 
         if !status.success() {
-            tracing::error!("cursor-agent exited with status: {}", status);
+            tracing::error!("❌ PRD cursor-agent exited with non-zero status: {}", status);
+            if let Some(code) = status.code() {
+                tracing::error!("Exit code: {}", code);
+            }
             return Err(RalphError::CursorAgent(format!(
                 "cursor-agent exited with status: {}",
                 status
             )));
         }
 
-        Ok(response.trim().to_string())
+        tracing::info!("✅ PRD cursor-agent completed successfully");
+        let trimmed_response = response.trim().to_string();
+        tracing::debug!("Response preview: {}", &trimmed_response.chars().take(100).collect::<String>());
+        Ok(trimmed_response)
     }
 
     /// Build a prompt from conversation history

@@ -158,3 +158,51 @@
 - CSS-only changes don't require Rust typechecking, but `cargo check -p web --features web` still validates the overall build
 - Browser verification with headless Chrome confirms the padding reduction works correctly at mobile viewport widths
 ---
+
+## 2026-01-26 - US-001
+- Added `--mobile-breakpoint: 640px` CSS variable to `packages/web/assets/main.css`
+- Added mobile-specific spacing variables: `--spacing-mobile-sm: 8px` and `--spacing-mobile-md: 16px`
+- Added `--touch-target-min: 44px` variable for mobile accessibility compliance
+- All variables added to `:root` selector for global availability
+- Typecheck passes with `cargo check -p web --features web`
+- Files changed:
+  - `packages/web/assets/main.css`
+  - `prd.json`
+
+**Learnings for future iterations:**
+- The PRD specifies `--mobile-breakpoint: 640px` which is different from the existing `--bp-mobile: 480px` variable - both serve different purposes (640px for mobile-first design, 480px for small mobile screens)
+- Mobile spacing variables (`--spacing-mobile-sm`, `--spacing-mobile-md`) should be used consistently across mobile components for consistent spacing
+- The `--touch-target-min: 44px` variable follows WCAG accessibility guidelines for minimum touch target size on mobile devices
+- CSS variables in `:root` are globally available and can be referenced in any component stylesheet
+- Typecheck validates the overall build even for CSS-only changes
+---
+
+## 2026-01-26 - US-002
+- Created `BottomTabBar` component in `packages/ui/src/ralph/bottom_tab_bar.rs`
+- Component accepts generic `Route` type and two route props (dashboard and new session)
+- Uses `router()` function from Dioxus 0.7 to get current route and highlight active tab
+- Tabs: Dashboard and New Session (Settings route doesn't exist, so only these two)
+- Active tab visually highlighted with `active` class (blue color and background highlight)
+- Fixed to bottom of viewport using `position: fixed; bottom: 0`
+- Hidden on desktop (>640px) using media query `@media (min-width: 641px)`
+- Visible on mobile (≤640px) using media query `@media (max-width: 640px)`
+- Integrated into `WebNavbar` layout component in `packages/web/src/main.rs`
+- All tabs meet minimum touch target size (44px) using `--touch-target-min` variable
+- Verified in browser at 390px width using headless Chrome screenshots
+- Files changed:
+  - `packages/ui/src/ralph/bottom_tab_bar.rs` (new)
+  - `packages/ui/assets/styling/bottom_tab_bar.css` (new)
+  - `packages/ui/src/ralph/mod.rs`
+  - `packages/web/src/main.rs`
+  - `prd.json`
+
+**Learnings for future iterations:**
+- In Dioxus 0.7, use `router()` function (not `use_router()`) to get router context - it takes no generic parameters
+- `router.current::<Route>()` returns the current route directly (not `Option<Route>`), so can be compared directly with route props
+- The `BottomTabBar` component is generic over `Route: Routable + Clone + PartialEq` to work with any route enum
+- CSS media queries should use the `--mobile-breakpoint: 640px` variable for mobile-first responsive design
+- Fixed bottom navigation requires `z-index` to ensure it appears above content (set to 1000)
+- Touch targets should use `min-height: var(--touch-target-min, 44px)` for accessibility compliance
+- The component uses CSS variables with fallbacks (e.g., `var(--surface, #151a23)`) so it works even if web `main.css` isn't loaded
+- Browser verification with headless Chrome confirms the tab bar appears on mobile and is hidden on desktop
+---
